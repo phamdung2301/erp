@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="vi">
+<head th:replace="~{fragments/layout :: head('Cài đặt hệ thống')}"></head>
+<body class="app-body">
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<div class="app-wrapper">
+    <div th:replace="~{fragments/sidebar :: sidebar-admin}" th:with="active='settings'"></div>
+
+    <main class="main-content">
+        <div class="container-fluid py-4">
+            <div class="page-header mb-4">
+                <h1 class="page-title"><i class="bi bi-gear-fill me-2"></i>Cài đặt hệ thống</h1>
+                <p class="page-subtitle">Cấu hình các tham số và chính sách hoa hồng của nền tảng e-Rescue</p>
+            </div>
+
+            <div class="row">
+                <div class="col-md-8 col-lg-6">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Chính sách phí & Chiết khấu</h5>
+                        </div>
+                        <div class="card-body">
+                            <form onsubmit="updateSettings(event)">
+                                
+                                <div class="mb-4">
+                                    <label for="systemFeePercent" class="form-label text-light fw-bold">Phí dịch vụ hệ thống (System Fee %)</label>
+                                    <div class="input-group">
+                                        <input type="number" step="0.1" min="0" max="100" class="form-control text-light bg-dark-soft border-secondary font-monospace" id="systemFeePercent" name="systemFeePercent" th:value="${systemFeePercent}" required>
+                                        <span class="input-group-text bg-secondary text-light">%</span>
+                                    </div>
+                                    <div class="form-text text-muted">Tỷ lệ phần trăm hoa hồng nền tảng sẽ khấu trừ trực tiếp từ tổng giá trị hóa đơn khi thợ cứu hộ hoàn thành cuốc xe thành công (Mặc định: 10%).</div>
+                                </div>
+
+                                <div class="mb-4 border-top border-secondary pt-4">
+                                    <h6 class="text-info fw-bold mb-3"><i class="bi bi-bank me-2"></i>TÀI KHOẢN NGÂN HÀNG ADMIN (NHẬN TIỀN)</h6>
+                                    
+                                    <div class="mb-3">
+                                        <label for="adminBankName" class="form-label text-muted small">NGÂN HÀNG THỤ HƯỞNG</label>
+                                        <select id="adminBankName" name="adminBankName" class="form-select bg-dark-soft border-secondary text-light" required>
+                                            <option value="Vietcombank" th:selected="${adminBankName == 'Vietcombank'}">Vietcombank (VCB)</option>
+                                            <option value="MBBank" th:selected="${adminBankName == 'MBBank'}">MB Bank (MB)</option>
+                                            <option value="Techcombank" th:selected="${adminBankName == 'Techcombank'}">Techcombank (TCB)</option>
+                                            <option value="BIDV" th:selected="${adminBankName == 'BIDV'}">BIDV</option>
+                                            <option value="VietinBank" th:selected="${adminBankName == 'VietinBank'}">VietinBank (CTG)</option>
+                                            <option value="Agribank" th:selected="${adminBankName == 'Agribank'}">Agribank (VBA)</option>
+                                            <option value="TPBank" th:selected="${adminBankName == 'TPBank'}">TPBank (TPB)</option>
+                                            <option value="ACB" th:selected="${adminBankName == 'ACB'}">ACB</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="adminBankAccountNo" class="form-label text-muted small">SỐ TÀI KHOẢN</label>
+                                        <input type="text" id="adminBankAccountNo" name="adminBankAccountNo" class="form-control bg-dark-soft border-secondary text-light font-monospace" th:value="${adminBankAccountNo}" required>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="adminBankAccountName" class="form-label text-muted small">TÊN CHỦ TÀI KHOẢN (VIẾT HOA KHÔNG DẤU)</label>
+                                        <input type="text" id="adminBankAccountName" name="adminBankAccountName" class="form-control bg-dark-soft border-secondary text-light font-monospace text-uppercase" th:value="${adminBankAccountName}" required>
+                                    </div>
+                                </div>
+
+                                <div class="d-grid mt-4">
+                                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-2"></i>Lưu cấu hình hệ thống</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div th:replace="~{fragments/layout :: toast}"></div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:src="@{/js/admin.js}"></script>
+</body>
+</html>

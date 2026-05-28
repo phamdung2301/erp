@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<!-- Sidebar for Admin -->
+<aside th:fragment="sidebar-admin" class="sidebar" id="sidebar">
+    <div class="sidebar-content">
+        <div class="sidebar-menu">
+            <div class="menu-label">TỔNG QUAN</div>
+            <a th:href="@{/admin/dashboard}" class="menu-item" th:classappend="${#strings.equals(active, 'dashboard')} ? 'active' : ''">
+                <i class="bi bi-grid-1x2-fill"></i>
+                <span>Dashboard</span>
+            </a>
+
+            <div class="menu-label">QUẢN LÝ</div>
+            <a th:href="@{/admin/users}" class="menu-item" th:classappend="${#strings.equals(active, 'users')} ? 'active' : ''">
+                <i class="bi bi-people-fill"></i>
+                <span>Người dùng</span>
+            </a>
+            <a th:href="@{/admin/rescuer-verification}" class="menu-item" th:classappend="${#strings.equals(active, 'verification')} ? 'active' : ''">
+                <i class="bi bi-patch-check-fill"></i>
+                <span>Duyệt đối tác</span>
+                <span class="menu-badge" th:if="${pendingVerifications != null and pendingVerifications > 0}" th:text="${pendingVerifications}">0</span>
+            </a>
+            <a th:href="@{/admin/payouts}" class="menu-item" th:classappend="${#strings.equals(active, 'payouts')} ? 'active' : ''">
+                <i class="bi bi-wallet2"></i>
+                <span>Rút tiền</span>
+                <span class="menu-badge" th:if="${pendingPayouts != null and pendingPayouts > 0}" th:text="${pendingPayouts}">0</span>
+            </a>
+            <a th:href="@{/admin/cash-debts}" class="menu-item" th:classappend="${#strings.equals(active, 'cash-debts')} ? 'active' : ''">
+                <i class="bi bi-currency-exchange"></i>
+                <span>Công nợ thợ</span>
+            </a>
+
+            <div class="menu-label">HỆ THỐNG</div>
+            <a th:href="@{/admin/price-list}" class="menu-item" th:classappend="${#strings.equals(active, 'price-list')} ? 'active' : ''">
+                <i class="bi bi-cash-stack"></i>
+                <span>Bảng giá</span>
+            </a>
+            <a th:href="@{/admin/reports}" class="menu-item" th:classappend="${#strings.equals(active, 'reports')} ? 'active' : ''">
+                <i class="bi bi-graph-up"></i>
+                <span>Báo cáo</span>
+            </a>
+            <a th:href="@{/admin/settings}" class="menu-item" th:classappend="${#strings.equals(active, 'settings')} ? 'active' : ''">
+                <i class="bi bi-gear-fill"></i>
+                <span>Cài đặt</span>
+            </a>
+        </div>
+    </div>
+</aside>
+
+<!-- Sidebar for Customer -->
+<aside th:fragment="sidebar-customer" class="sidebar" id="sidebar">
+    <div class="sidebar-content">
+        <div class="sidebar-menu">
+            <div class="menu-label">TỔNG QUAN</div>
+            <a th:href="@{/customer/dashboard}" class="menu-item" th:classappend="${#strings.equals(active, 'dashboard')} ? 'active' : ''">
+                <i class="bi bi-grid-1x2-fill"></i>
+                <span>Dashboard</span>
+            </a>
+
+            <div class="menu-label">CỨU HỘ</div>
+            <a th:href="@{/customer/dashboard#panel-request-init}" class="menu-item">
+                <i class="bi bi-geo-alt-fill"></i>
+                <span>Yêu cầu mới</span>
+            </a>
+            <a th:href="@{/customer/dashboard#input-desc}" class="menu-item">
+                <i class="bi bi-robot"></i>
+                <span>Chẩn đoán AI</span>
+            </a>
+            <a th:href="@{/customer/dashboard}" class="menu-item">
+                <i class="bi bi-clock-history"></i>
+                <span>Lịch sử cuốc xe</span>
+            </a>
+        </div>
+    </div>
+</aside>
+
+<!-- Sidebar for Rescuer -->
+<aside th:fragment="sidebar-rescuer" class="sidebar" id="sidebar">
+    <div class="sidebar-content">
+        <div class="sidebar-menu">
+            <div class="menu-label">TỔNG QUAN</div>
+            <a th:href="@{/rescuer/dashboard}" class="menu-item" th:classappend="${#strings.equals(active, 'dashboard')} ? 'active' : ''">
+                <i class="bi bi-grid-1x2-fill"></i>
+                <span>Dashboard</span>
+            </a>
+
+            <div class="menu-label">CÔNG VIỆC</div>
+            <a th:href="@{/rescuer/dashboard}" class="menu-item">
+                <i class="bi bi-bell-fill"></i>
+                <span>Cuốc mới</span>
+            </a>
+            <a th:href="@{/rescuer/dashboard#wallet-balance}" class="menu-item">
+                <i class="bi bi-wallet2"></i>
+                <span>Ví tiền</span>
+            </a>
+            <a th:href="@{/rescuer/dashboard}" class="menu-item">
+                <i class="bi bi-bar-chart-fill"></i>
+                <span>Doanh thu</span>
+            </a>
+        </div>
+    </div>
+</aside>
+
+</html>

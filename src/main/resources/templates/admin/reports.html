@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="vi">
+<head>
+    <th:block th:replace="~{fragments/layout :: head('Báo cáo thống kê hệ thống')}"></th:block>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="app-body">
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<div class="app-wrapper">
+    <div th:replace="~{fragments/sidebar :: sidebar-admin}" th:with="active='reports'"></div>
+
+    <main class="main-content">
+        <div class="container-fluid py-4">
+            <div class="page-header mb-4">
+                <h1 class="page-title"><i class="bi bi-graph-up me-2"></i>Báo cáo & Thống kê doanh thu</h1>
+                <p class="page-subtitle">Thống kê chi tiết doanh số, hoa hồng hệ thống và phân tích dữ liệu cứu hộ</p>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="row g-4 mb-4">
+                <!-- Total Revenue -->
+                <div class="col-md-6 col-lg-3">
+                    <div class="card glass-card stat-card card-hover">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="stat-label">Tổng doanh thu (GMV)</p>
+                                    <h3 class="stat-value text-success font-monospace" th:text="${#numbers.formatDecimal(totalRevenue, 0, 'COMMA', 0, 'POINT')} + ' ₫'">0 ₫</h3>
+                                </div>
+                                <div class="stat-icon bg-success-soft">
+                                    <i class="bi bi-cash text-success"></i>
+                                </div>
+                            </div>
+                            <div class="stat-footer">
+                                <span class="text-muted">Tổng tiền khách hàng thanh toán</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total System Fee -->
+                <div class="col-md-6 col-lg-3">
+                    <div class="card glass-card stat-card card-hover">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="stat-label">Hoa hồng hệ thống</p>
+                                    <h3 class="stat-value text-primary font-monospace" th:text="${#numbers.formatDecimal(totalSystemFee, 0, 'COMMA', 0, 'POINT')} + ' ₫'">0 ₫</h3>
+                                </div>
+                                <div class="stat-icon bg-primary-soft">
+                                    <i class="bi bi-percent text-primary"></i>
+                                </div>
+                            </div>
+                            <div class="stat-footer">
+                                <span class="text-muted">Chiết khấu thu từ các cuốc xe</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Completed Requests -->
+                <div class="col-md-6 col-lg-3">
+                    <div class="card glass-card stat-card card-hover">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="stat-label">Cuốc xe thành công</p>
+                                    <h3 class="stat-value text-warning" th:text="${completedRequests}">0</h3>
+                                </div>
+                                <div class="stat-icon bg-warning-soft">
+                                    <i class="bi bi-check2-circle text-warning"></i>
+                                </div>
+                            </div>
+                            <div class="stat-footer">
+                                <span class="text-muted">Đã sửa chữa và hoàn tất</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Success Rate -->
+                <div class="col-md-6 col-lg-3">
+                    <div class="card glass-card stat-card card-hover">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="stat-label">Tỷ lệ thành công</p>
+                                    <h3 class="stat-value text-info" th:text="${#numbers.formatDecimal(successRate, 1, 1)} + '%'">100%</h3>
+                                </div>
+                                <div class="stat-icon bg-info-soft">
+                                    <i class="bi bi-shield-check text-info"></i>
+                                </div>
+                            </div>
+                            <div class="stat-footer">
+                                <span class="text-muted">Tỷ lệ thành công / tổng yêu cầu</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="row g-4 mb-4">
+                <!-- Bar Chart: Revenue & Commission -->
+                <div class="col-lg-8">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0"><i class="bi bi-bar-chart-fill me-2"></i>Doanh thu & Hoa hồng 6 tháng gần nhất</h5>
+                        </div>
+                        <div class="card-body">
+                            <div style="height: 320px; position: relative;">
+                                <canvas id="revenueChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Doughnut Chart: Issue Breakdown -->
+                <div class="col-lg-4">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0"><i class="bi bi-pie-chart-fill me-2"></i>Cơ cấu loại sự cố gặp phải</h5>
+                        </div>
+                        <div class="card-body">
+                            <div style="height: 320px; position: relative;" class="d-flex justify-content-center align-items-center">
+                                <canvas id="issuesChart" style="max-height: 280px;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Invoices List Card -->
+            <div class="card glass-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0"><i class="bi bi-receipt-cutoff me-2"></i>Nhật ký hóa đơn gần đây</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <a th:href="@{/api/admin/reports/export-csv}" class="btn btn-outline-success btn-xs py-1 px-3">
+                            <i class="bi bi-file-earmark-excel me-1"></i>Xuất Excel (CSV)
+                        </a>
+                        <span class="badge bg-secondary" th:text="${#lists.size(recentInvoices)} + ' hóa đơn'">0</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Mã hóa đơn</th>
+                                    <th>Khách hàng</th>
+                                    <th>Thợ cứu hộ</th>
+                                    <th>Tổng tiền</th>
+                                    <th>Phí hệ thống</th>
+                                    <th>Phương thức</th>
+                                    <th>Thanh toán</th>
+                                    <th>Thời gian</th>
+                                    <th class="text-center">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="inv : ${recentInvoices}">
+                                    <td class="font-monospace text-muted" th:text="${#strings.substring(inv.invoiceId, 0, 8)} + '...'">inv-uuid</td>
+                                    <td th:text="${inv.rescueRequest.customer.fullName}">Customer</td>
+                                    <td th:text="${inv.rescueRequest.rescuer != null ? inv.rescueRequest.rescuer.fullName : 'Chưa nhận'}">Rescuer</td>
+                                    <td class="font-monospace fw-bold" th:text="${#numbers.formatDecimal(inv.totalAmount, 0, 'COMMA', 0, 'POINT')} + ' ₫'">0 ₫</td>
+                                    <td class="font-monospace text-warning" th:text="${#numbers.formatDecimal(inv.systemFee, 0, 'COMMA', 0, 'POINT')} + ' ₫'">0 ₫</td>
+                                    <td th:text="${inv.paymentMethod}">CASH</td>
+                                    <td>
+                                        <span class="badge" th:classappend="${inv.paid} ? 'bg-success' : 'bg-danger'" th:text="${inv.paid ? 'Đã trả' : 'Chờ xử lý'}">Paid</span>
+                                    </td>
+                                    <td th:text="${#temporals.format(inv.createdAt, 'dd/MM/yyyy HH:mm')}">Date</td>
+                                    <td class="text-center">
+                                        <button class="btn btn-outline-info btn-xs py-0 px-2" 
+                                                th:data-invoice-id="${inv.invoiceId}"
+                                                onclick="viewInvoiceDetail(this.getAttribute('data-invoice-id'))"
+                                                title="In hóa đơn">
+                                            <i class="bi bi-printer"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(recentInvoices)}">
+                                    <td colspan="8" class="text-center text-muted py-4">Chưa có giao dịch hóa đơn nào được thực hiện.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Inline Thymeleaf JS script to initialize Chart.js -->
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener("DOMContentLoaded", function () {
+        // Common Chart Options for Midnight Glass Theme
+        const fontColor = '#a0aebf';
+        const gridColor = 'rgba(255, 255, 255, 0.05)';
+
+        // 1. Line / Bar Chart (Revenue & Commission)
+        const ctxRevenue = document.getElementById('revenueChart').getContext('2d');
+        const labels = /*[[${chartLabels}]]*/ [];
+        const revenueData = /*[[${chartRevenue}]]*/ [];
+        const feeData = /*[[${chartFee}]]*/ [];
+
+        new Chart(ctxRevenue, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'GMV (Tổng doanh thu)',
+                        data: revenueData,
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Hoa hồng hệ thống',
+                        data: feeData,
+                        backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: fontColor }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: gridColor },
+                        ticks: { color: fontColor }
+                    },
+                    y: {
+                        grid: { color: gridColor },
+                        ticks: {
+                            color: fontColor,
+                            callback: function(value) {
+                                return value.toLocaleString('vi-VN') + ' ₫';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Doughnut Chart (Issue Breakdown)
+        const ctxIssues = document.getElementById('issuesChart').getContext('2d');
+        const puncture = /*[[${punctureCount}]]*/ 0;
+        const battery = /*[[${batteryCount}]]*/ 0;
+        const chain = /*[[${chainCount}]]*/ 0;
+        const brake = /*[[${brakeCount}]]*/ 0;
+        const engine = /*[[${engineCount}]]*/ 0;
+        const other = /*[[${otherCount}]]*/ 0;
+
+        new Chart(ctxIssues, {
+            type: 'doughnut',
+            data: {
+                labels: ['Thủng lốp', 'Ắc quy', 'Xích/Sên', 'Phanh/Thắng', 'Động cơ', 'Khác'],
+                datasets: [{
+                    data: [puncture, battery, chain, brake, engine, other],
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(153, 102, 255, 0.7)',
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(255, 159, 64, 0.7)',
+                        'rgba(201, 203, 207, 0.7)'
+                    ],
+                    borderColor: 'rgba(10, 20, 38, 1)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: fontColor }
+                    }
+                }
+            }
+        });
+    });
+    /*]]>*/
+</script>
+
+<!-- Modal In Hóa Đơn Premium -->
+<div class="modal fade" id="invoicePrintModal" tabindex="-1" aria-labelledby="invoicePrintModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content glass-card">
+            <div class="modal-header border-bottom border-light">
+                <h5 class="modal-title text-white" id="invoicePrintModalLabel">
+                    <i class="bi bi-printer text-info me-2"></i>Chi tiết & Phiếu in hóa đơn
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4" id="printable-invoice-content">
+                <!-- Thiết kế hóa đơn premium chuyên nghiệp -->
+                <div class="invoice-container p-4 bg-dark-soft rounded border border-light text-start">
+                    <!-- Invoice Header -->
+                    <div class="row align-items-center mb-4 pb-3 border-bottom border-secondary border-opacity-50">
+                        <div class="col-sm-6">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <div class="brand-icon" style="width: 40px; height: 40px; font-size: 1.1rem;">
+                                    <i class="bi bi-shield-fill-check"></i>
+                                </div>
+                                <span class="brand-text fs-4 text-white">e-Rescue Platform</span>
+                            </div>
+                            <p class="text-muted small mb-0">Công ty Cổ phần Cứu hộ Xe thông minh Việt Nam</p>
+                            <p class="text-muted small mb-0">Hotline: 1900.6060 | MST: 0102030405</p>
+                        </div>
+                        <div class="col-sm-6 text-end">
+                            <h2 class="text-gradient fw-bold mb-1 fs-3" style="background: linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">HÓA ĐƠN DỊCH VỤ</h2>
+                            <p class="text-white mb-1 font-monospace small">MÃ HĐ: <span id="print-inv-id" class="text-info fw-bold">N/A</span></p>
+                            <p class="text-muted small mb-0">Ngày tạo: <span id="print-inv-date">N/A</span></p>
+                        </div>
+                    </div>
+
+                    <!-- Client & Rescuer Info -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <h6 class="text-primary-light text-uppercase tracking-wider small fw-bold mb-2" style="color: #a5b4fc !important;">KHÁCH HÀNG (CUSTOMER)</h6>
+                            <div class="text-white fw-bold mb-1" id="print-cust-name">N/A</div>
+                            <div class="text-muted small mb-1">SĐT: <span id="print-cust-phone">N/A</span></div>
+                            <div class="text-muted small">Địa chỉ sự cố: <span id="print-cust-address">N/A</span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-success text-uppercase tracking-wider small fw-bold mb-2" style="color: #34d399 !important;">ĐỐI TÁC CỨU HỘ (RESCUER)</h6>
+                            <div class="text-white fw-bold mb-1" id="print-resc-name">N/A</div>
+                            <div class="text-muted small">SĐT: <span id="print-resc-phone">N/A</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Job Diagnosis -->
+                    <div class="bg-black-50 p-3 rounded mb-4" style="background-color: rgba(0, 0, 0, 0.2) !important;">
+                        <h6 class="text-warning text-uppercase tracking-wider small fw-bold mb-2" style="color: #fbbf24 !important;">CHI TIẾT SỰ CỐ & CHẨN ĐOÁN LỖI AI</h6>
+                        <div class="text-light small mb-2"><strong>Mô tả của khách:</strong> <span id="print-issue-desc">N/A</span></div>
+                        <div class="text-light small"><strong>AI Chẩn đoán & Tư vấn:</strong> <br/><span id="print-ai-diag" class="font-monospace text-warning-soft" style="white-space: pre-line; color: #fef08a;">N/A</span></div>
+                    </div>
+
+                    <!-- Pricing Table -->
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered border-secondary border-opacity-50 text-white mb-0">
+                            <thead>
+                                <tr class="bg-secondary-soft" style="background-color: rgba(255,255,255,0.05);">
+                                    <th>HẠNG MỤC DỊCH VỤ (SERVICE DETAIL)</th>
+                                    <th class="text-end" style="width: 200px;">THÀNH TIỀN (VND)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Chi phí cứu hộ & Khắc phục sự cố cơ bản (Base Price)</td>
+                                    <td class="text-end font-monospace" id="print-base-price">0 ₫</td>
+                                </tr>
+                                <tr>
+                                    <td>Chi phí vật tư / Phụ tùng phát sinh (Extra Price)</td>
+                                    <td class="text-end font-monospace" id="print-extra-price">0 ₫</td>
+                                </tr>
+                                <tr class="border-top border-secondary">
+                                    <td class="fw-bold">TỔNG CỘNG THANH TOÁN (TOTAL AMOUNT)</td>
+                                    <td class="text-end fw-bold text-success font-monospace fs-5" id="print-total-amount" style="color: #34d399 !important;">0 ₫</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Payment Metadata -->
+                    <div class="row align-items-center mb-4">
+                        <div class="col-sm-6">
+                            <div class="mb-1"><strong>Hình thức thanh toán:</strong> <span id="print-pay-method" class="badge bg-secondary">CASH</span></div>
+                            <div><strong>Trạng thái hóa đơn:</strong> <span id="print-pay-status" class="badge bg-success">ĐÃ THANH TOÁN</span></div>
+                        </div>
+                        <div class="col-sm-6 text-end position-relative">
+                            <!-- Con dấu tròn ĐÃ THANH TOÁN giả lập cực premium -->
+                            <div class="paid-stamp d-inline-block border border-success border-4 rounded text-success fw-bold text-center px-3 py-1 font-monospace" style="transform: rotate(-12deg); border-style: double !important; font-size: 1.2rem; text-shadow: 0 0 1px green; opacity: 0.85; border-color: #10b981 !important; color: #10b981 !important;">
+                                ĐÃ THANH TOÁN <i class="bi bi-check-all"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Signatures -->
+                    <div class="row text-center mt-5 pt-3 border-top border-secondary border-opacity-25 text-muted small">
+                        <div class="col-6">
+                            <p class="mb-4">NGƯỜI LẬP PHIẾU<br/><span class="text-muted">(Ký, ghi rõ họ tên)</span></p>
+                            <p class="mt-4 text-white fw-bold">e-Rescue System</p>
+                        </div>
+                        <div class="col-6">
+                            <p class="mb-4">KHÁCH HÀNG XÁC NHẬN<br/><span class="text-muted">(Đã nhận xe & hoàn thành)</span></p>
+                            <p class="mt-4 text-white fw-bold" id="print-cust-sign">N/A</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top border-light">
+                <button type="button" class="btn btn-secondary-soft btn-sm" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="printInvoice()"><i class="bi bi-printer me-1"></i>In Phiếu Hóa Đơn</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: toast}"></div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

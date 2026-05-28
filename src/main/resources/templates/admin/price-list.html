@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="vi">
+<head th:replace="~{fragments/layout :: head('Quản trị bảng giá dịch vụ')}"></head>
+<body class="app-body">
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<div class="app-wrapper">
+    <div th:replace="~{fragments/sidebar :: sidebar-admin}" th:with="active='price-list'"></div>
+
+    <main class="main-content">
+        <div class="container-fluid py-4">
+            <div class="page-header mb-4">
+                <h1 class="page-title"><i class="bi bi-cash-stack me-2"></i>Cấu hình bảng giá dịch vụ</h1>
+                <p class="page-subtitle">Quản lý đơn giá sửa chữa cứu hộ cơ bản được gợi ý bởi hệ thống AI</p>
+            </div>
+
+            <div class="row">
+                <div class="col-md-8 col-lg-6">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Đơn giá cứu hộ đề xuất</h5>
+                        </div>
+                        <div class="card-body">
+                            <form onsubmit="updatePriceList(event)">
+                                
+                                <!-- Thủng săm lốp -->
+                                <div class="mb-4">
+                                    <label for="pricePuncture" class="form-label text-light fw-bold">1. Sự cố săm, lốp xe (vá lốp, thay ruột)</label>
+                                    <div class="input-group">
+                                        <input type="number" step="1000" min="0" class="form-control text-light bg-dark-soft border-secondary font-monospace" id="pricePuncture" name="pricePuncture" th:value="${#numbers.formatDecimal(pricePuncture, 0, 0)}" required>
+                                        <span class="input-group-text bg-secondary text-light">₫</span>
+                                    </div>
+                                    <div class="form-text text-muted">Đơn giá áp dụng cho thợ vá săm lốp lưu động cơ bản.</div>
+                                </div>
+
+                                <!-- Lỗi ắc quy -->
+                                <div class="mb-4">
+                                    <label for="priceBattery" class="form-label text-light fw-bold">2. Sự cố ắc quy & Khởi động (kích/câu bình)</label>
+                                    <div class="input-group">
+                                        <input type="number" step="1000" min="0" class="form-control text-light bg-dark-soft border-secondary font-monospace" id="priceBattery" name="priceBattery" th:value="${#numbers.formatDecimal(priceBattery, 0, 0)}" required>
+                                        <span class="input-group-text bg-secondary text-light">₫</span>
+                                    </div>
+                                    <div class="form-text text-muted">Đơn giá áp dụng cho việc câu kích bình xe hoặc thợ di chuyển kiểm tra ắc quy.</div>
+                                </div>
+
+                                <!-- Đứt xích sên -->
+                                <div class="mb-4">
+                                    <label for="priceChain" class="form-label text-light fw-bold">3. Sự cố xích, sên truyền động</label>
+                                    <div class="input-group">
+                                        <input type="number" step="1000" min="0" class="form-control text-light bg-dark-soft border-secondary font-monospace" id="priceChain" name="priceChain" th:value="${#numbers.formatDecimal(priceChain, 0, 0)}" required>
+                                        <span class="input-group-text bg-secondary text-light">₫</span>
+                                    </div>
+                                    <div class="form-text text-muted">Đơn giá cắt/nối sên xích hoặc căn chỉnh xích cơ bản tại hiện trường.</div>
+                                </div>
+
+                                <!-- Hỏng thắng phanh -->
+                                <div class="mb-4">
+                                    <label for="priceBrake" class="form-label text-light fw-bold">4. Sự cố phanh, thắng xe</label>
+                                    <div class="input-group">
+                                        <input type="number" step="1000" min="0" class="form-control text-light bg-dark-soft border-secondary font-monospace" id="priceBrake" name="priceBrake" th:value="${#numbers.formatDecimal(priceBrake, 0, 0)}" required>
+                                        <span class="input-group-text bg-secondary text-light">₫</span>
+                                    </div>
+                                    <div class="form-text text-muted">Đơn giá kiểm tra dây phanh, má phanh hoặc xử lý kẹt thắng an toàn.</div>
+                                </div>
+
+                                <!-- Lỗi động cơ/khác -->
+                                <div class="mb-4">
+                                    <label for="priceEngine" class="form-label text-light fw-bold">5. Sự cố động cơ / Kỹ thuật phức tạp</label>
+                                    <div class="input-group">
+                                        <input type="number" step="1000" min="0" class="form-control text-light bg-dark-soft border-secondary font-monospace" id="priceEngine" name="priceEngine" th:value="${#numbers.formatDecimal(priceEngine, 0, 0)}" required>
+                                        <span class="input-group-text bg-secondary text-light">₫</span>
+                                    </div>
+                                    <div class="form-text text-muted">Đơn giá mặc định kiểm tra chuyên sâu phần máy, xăng gió, bugi khi không bắt được lỗi đơn giản.</div>
+                                </div>
+
+                                <div class="d-grid mt-4">
+                                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-2"></i>Lưu cấu hình bảng giá</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div th:replace="~{fragments/layout :: toast}"></div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:src="@{/js/admin.js}"></script>
+</body>
+</html>

@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="vi">
+<head>
+    <th:block th:replace="~{fragments/layout :: head('Dashboard Đội cứu hộ')}"></th:block>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 1;
+        }
+        .leaflet-container {
+            background: #111216 !important;
+        }
+        /* Stepper for Rescuer active request tracking */
+        .stepper {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin-bottom: 2rem;
+        }
+        .stepper::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-50%);
+            z-index: 0;
+        }
+        .step-progress {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 0%;
+            height: 3px;
+            background: var(--accent-gradient);
+            transform: translateY(-50%);
+            z-index: 1;
+            transition: width 0.4s ease;
+        }
+        .step-item {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .step-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #1f222a;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #717d96;
+            font-size: 0.9rem;
+            transition: all 0.4s ease;
+        }
+        .step-item.active .step-icon {
+            background: #00e5ff;
+            border-color: #00e5ff;
+            color: #111216;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
+        }
+        .step-item.completed .step-icon {
+            background: #00e676;
+            border-color: #00e676;
+            color: #111216;
+        }
+        .step-label {
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            color: #717d96;
+            font-weight: 500;
+        }
+        .step-item.active .step-label {
+            color: #00e5ff;
+        }
+        .step-item.completed .step-label {
+            color: #00e676;
+        }
+        .request-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            transition: var(--transition);
+        }
+        .request-card:hover {
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.04);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body class="app-body">
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<div class="app-wrapper">
+    <div th:replace="~{fragments/sidebar :: sidebar-rescuer}" th:with="active='dashboard'"></div>
+
+    <main class="main-content">
+        <div class="container-fluid py-4">
+            <!-- Welcome Header -->
+            <div class="page-header mb-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="page-title">
+                        <i class="bi bi-wrench me-2"></i>Khu làm việc:
+                        <span th:text="${user.fullName != null ? user.fullName : user.phone}" class="text-gradient">Thợ</span>
+                    </h1>
+                    <p class="page-subtitle">Quản lý trạng thái, nhận cuốc xe và chỉ đường cứu hộ</p>
+                </div>
+                <div>
+                    <span th:if="${!profile.verified}" class="badge bg-warning text-dark px-3 py-2 fs-7"><i class="bi bi-exclamation-triangle me-1"></i>Chờ Duyệt Tài Khoản</span>
+                    <span th:if="${profile.verified}" class="badge bg-success px-3 py-2 fs-7"><i class="bi bi-patch-check-fill me-1"></i>Đối tác Đã Xác Minh</span>
+                </div>
+            </div>
+
+            <!-- Stats & Working Status Switches -->
+            <div class="row g-4 mb-4">
+                <div class="col-xl-3 col-md-6">
+                    <div class="card glass-card">
+                        <div class="card-body text-center py-4">
+                            <h6 class="text-muted mb-3">Trạng thái làm việc</h6>
+                            <div class="form-check form-switch d-flex justify-content-center mb-2">
+                                <input class="form-check-input fs-3" type="checkbox" id="onlineToggle" th:checked="${profile.online}" th:disabled="${!profile.verified}">
+                                <label class="form-check-label ms-2 fs-5" for="onlineToggle" id="onlineLabel" 
+                                       th:text="${profile.online ? 'Đang làm việc' : 'Đang nghỉ'}">Đang nghỉ</label>
+                            </div>
+                            <small class="text-muted" th:if="${!profile.verified}">Yêu cầu tài khoản được Admin phê duyệt để bật online</small>
+                            <small class="text-info" th:if="${profile.verified}"><i class="bi bi-info-circle me-1"></i>Hãy bật online để nhận yêu cầu cứu hộ</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="card glass-card">
+                        <div class="card-body text-center py-4">
+                            <div class="action-icon bg-success-soft mx-auto">
+                                <i class="bi bi-wallet2 text-success"></i>
+                            </div>
+                            <h6 class="mt-3 text-muted">Số dư ví tiền</h6>
+                            <h3 class="text-gradient mb-2 font-monospace" id="wallet-balance" th:text="${#numbers.formatDecimal(profile.walletBalance, 0, 'COMMA', 0, 'POINT') + ' ₫'}">0 ₫</h3>
+                            <div id="rescuer-data" th:data-rescuer-phone="${user.phone}" class="d-none"></div>
+                            <div class="d-flex justify-content-center gap-2">
+                                <button type="button" class="btn btn-xs btn-outline-success" data-bs-toggle="modal" data-bs-target="#payoutModal" th:disabled="${profile.walletBalance.compareTo(T(java.math.BigDecimal).ZERO) <= 0}">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>Yêu cầu rút tiền
+                                </button>
+                                <button type="button" class="btn btn-xs btn-outline-info" data-bs-toggle="modal" data-bs-target="#adminPaymentModal"
+                                        th:data-admin-bank-name="${adminBankName}"
+                                        th:data-admin-bank-account-no="${adminBankAccountNo}"
+                                        th:data-admin-bank-account-name="${adminBankAccountName}">
+                                    <i class="bi bi-qr-code me-1"></i>Nộp tiền cho Admin
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="card glass-card">
+                        <div class="card-body text-center py-4">
+                            <div class="action-icon bg-warning-soft mx-auto">
+                                <i class="bi bi-currency-exchange text-warning"></i>
+                            </div>
+                            <h6 class="mt-3 text-muted">Công nợ giữ tiền mặt</h6>
+                            <h3 class="text-gradient mb-2 font-monospace" id="cash-debt"
+                                th:text="${#numbers.formatDecimal(profile.cashDebt != null ? profile.cashDebt : 0, 0, 'COMMA', 0, 'POINT') + ' ₫'}">0 ₫</h3>
+                            <small class="text-warning"><i class="bi bi-info-circle me-1"></i>Tiền mặt cần nộp về Admin</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="card glass-card">
+                        <div class="card-body text-center py-4">
+                            <div class="action-icon bg-primary-soft mx-auto">
+                                <i class="bi bi-star-fill text-primary"></i>
+                            </div>
+                            <h6 class="mt-3 text-muted">Đánh giá trung bình</h6>
+                            <h3 class="text-gradient mb-0">5.0 / 5 ★</h3>
+                            <span class="badge bg-primary-soft text-primary mt-2">Dịch vụ xuất sắc</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="card glass-card">
+                        <div class="card-body text-center py-4">
+                            <div class="action-icon bg-success-soft mx-auto">
+                                <i class="bi bi-graph-up-arrow text-success"></i>
+                            </div>
+                            <h6 class="mt-3 text-muted">Doanh thu tháng này</h6>
+                            <h3 class="text-gradient mb-2 font-monospace" id="monthly-revenue-badge" style="background: linear-gradient(135deg, #10b981, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">0 ₫</h3>
+                            <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>Doanh thu cứu hộ (100%)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Interactive Workspace -->
+            <div class="row g-4">
+                <!-- Map Left Column -->
+                <div class="col-lg-8">
+                    <div class="card glass-card p-2 h-100">
+                        <div id="map"></div>
+                    </div>
+                </div>
+
+                <!-- Control Panel Right Column -->
+                <div class="col-lg-4">
+                    <!-- Panel 1: Offline mode -->
+                    <div class="card glass-card h-100" id="panel-offline">
+                        <div class="card-body text-center py-5">
+                            <div class="info-icon-lg bg-secondary-soft mx-auto mb-4" style="width: 70px; height: 70px;">
+                                <i class="bi bi-moon-stars text-secondary fs-2"></i>
+                            </div>
+                            <h5 class="text-white">Bạn đang Offline</h5>
+                            <p class="text-muted small px-3">Bật công tắc "Đang làm việc" ở phía trên để bắt đầu nhận các cuốc cứu hộ từ những khách hàng xung quanh vị trí của bạn.</p>
+                        </div>
+                    </div>
+
+                    <!-- Panel 2: Online, Waiting for request -->
+                    <div class="card glass-card h-100 d-none" id="panel-waiting">
+                        <div class="card-header border-bottom border-light">
+                            <h5 class="card-title mb-0 d-flex align-items-center gap-2 text-info">
+                                <span class="spinner-grow spinner-grow-sm" role="status"></span>
+                                Tìm cuốc xe xung quanh
+                            </h5>
+                        </div>
+                        <div class="card-body" style="max-height: 420px; overflow-y: auto;" id="incoming-list">
+                            <div class="text-center py-4 text-muted" id="no-request-msg">
+                                <i class="bi bi-broadcast fs-3 mb-2 d-block"></i>
+                                Đang quét tìm sự cố cứu hộ gần bạn...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel 3: Active request tracking -->
+                    <div class="card glass-card h-100 d-none" id="panel-active">
+                        <div class="card-header border-bottom border-light">
+                            <h5 class="card-title mb-0 d-flex align-items-center gap-2 text-danger">
+                                <i class="bi bi-geo-alt-fill"></i>
+                                Cuốc xe đang thực hiện
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- Custom Stepper -->
+                            <div class="stepper">
+                                <div class="step-progress" id="active-progress-bar"></div>
+                                <div class="step-item" id="step-accept">
+                                    <div class="step-icon"><i class="bi bi-check-lg"></i></div>
+                                    <span class="step-label">Nhận cuốc</span>
+                                </div>
+                                <div class="step-item" id="step-arrive">
+                                    <div class="step-icon"><i class="bi bi-geo-fill"></i></div>
+                                    <span class="step-label">Đến nơi</span>
+                                </div>
+                                <div class="step-item" id="step-repair">
+                                    <div class="step-icon"><i class="bi bi-tools"></i></div>
+                                    <span class="step-label">Sửa xe</span>
+                                </div>
+                            </div>
+
+                            <!-- Customer Info Card -->
+                            <div class="p-3 bg-dark-soft border border-light rounded mb-3">
+                                <h6 class="text-muted small mb-2"><i class="bi bi-person-fill me-1"></i>KHÁCH HÀNG</h6>
+                                <h6 class="text-white mb-1" id="active-customer-name">Khách hàng</h6>
+                                <p class="text-info small mb-2" id="active-customer-address"><i class="bi bi-geo-alt small me-1"></i>Địa chỉ sự cố...</p>
+                                <a href="tel:#" class="btn btn-outline-info btn-xs py-1 px-3" id="active-customer-phone">
+                                    <i class="bi bi-telephone-fill small me-1"></i>Gọi Khách hàng
+                                </a>
+                            </div>
+
+                            <!-- AI Diagnostic Result Card -->
+                            <div class="p-3 bg-primary-soft border border-primary-soft rounded mb-3">
+                                <h6 class="text-primary small mb-1"><i class="bi bi-robot me-1"></i>AI CHẨN ĐOÁN LỖI XE</h6>
+                                <p class="text-white small mb-1 font-weight-bold" id="active-ai-issue">Đang chẩn đoán...</p>
+                                <div class="d-flex justify-content-between text-muted small mt-2 border-top border-light pt-2">
+                                    <span>Giá cơ bản dự tính:</span>
+                                    <span class="text-white font-monospace" id="active-base-price">0đ</span>
+                                </div>
+                            </div>
+
+                            <!-- Extra Cost form (shown when status is IN_PROGRESS) -->
+                            <div class="p-3 bg-dark-soft border border-light rounded mb-3 d-none" id="extra-price-box">
+                                <h6 class="text-muted small mb-2"><i class="bi bi-plus-circle me-1"></i>CHI PHÍ PHỤ TÙNG PHÁT SINH</h6>
+                                <div class="input-group mb-2">
+                                    <input type="number" id="input-extra-price" class="form-control bg-dark-soft border-light text-white font-monospace" placeholder="Nhập phụ thu (VND)">
+                                    <button class="btn btn-outline-primary" type="button" id="btn-update-extra">Cập nhật</button>
+                                </div>
+                                <small class="text-muted">Nhập giá trị phụ tùng thay thế thực tế (nếu có).</small>
+                            </div>
+
+                            <!-- Mobile Inventory (Cốp đồ di động) -->
+                            <div class="p-3 bg-dark-soft border border-light rounded mb-3 d-none" id="mobile-inventory-box">
+                                <h6 class="text-muted small mb-2"><i class="bi bi-box-seam-fill me-1"></i>CỐP ĐỒ NGHỀ DI ĐỘNG (TỒN KHO)</h6>
+                                <div class="mb-2">
+                                    <select id="select-mobile-part" class="form-select bg-dark border-light text-white small" style="font-size: 0.85rem;">
+                                        <option value="">-- Chọn phụ tùng từ cốp đồ --</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-info btn-sm w-100" type="button" id="btn-use-mobile-part" style="font-size: 0.75rem;">
+                                    <i class="bi bi-bag-plus-fill me-1"></i>Sử dụng Phụ tùng
+                                </button>
+                            </div>
+
+                            <!-- Action status controller -->
+                            <div class="mt-4">
+                                <button type="button" class="btn btn-info w-100 mb-2 d-none" id="btn-status-arrive">
+                                    <i class="bi bi-geo-fill me-2"></i>Đã Đến Vị Trí Sự Cố
+                                </button>
+                                <button type="button" class="btn btn-warning w-100 mb-2 d-none" id="btn-status-start">
+                                    <i class="bi bi-wrench-adjustable me-2"></i>Bắt Đầu Sửa Chữa
+                                </button>
+                                
+                                <!-- OTP Complete section (shown when status is IN_PROGRESS) -->
+                                <div class="d-none" id="otp-complete-box">
+                                    <div class="mb-2">
+                                        <label class="form-label text-muted small">NHẬP MÃ OTP TỪ KHÁCH HÀNG</label>
+                                        <input type="text" id="input-otp" class="form-control bg-dark-soft border-light text-white text-center font-monospace fs-4 tracking-widest" placeholder="******" maxlength="6">
+                                    </div>
+                                    <button type="button" class="btn btn-success w-100" id="btn-status-complete">
+                                        <i class="bi bi-check-circle-fill me-2"></i>Xác Nhận OTP & Hoàn Thành
+                                    </button>
+                                </div>
+
+                                <!-- In-App Chat (Glassmorphic) -->
+                                <div class="mt-4 border-top border-light pt-3" id="active-chat-container">
+                                    <h6 class="text-white mb-2 small text-muted d-flex align-items-center justify-content-between">
+                                        <span><i class="bi bi-chat-dots-fill text-info me-2"></i>Nhắn tin với Khách</span>
+                                        <span class="badge bg-info-soft text-info" id="chat-status-badge">Trực tuyến</span>
+                                    </h6>
+                                    <div id="chat-messages-box" class="p-3 bg-dark-soft rounded mb-2 overflow-y-auto" style="height: 180px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 8px;">
+                                        <div class="text-center text-muted small py-4">Chưa có tin nhắn nào. Hãy gửi lời chào!</div>
+                                    </div>
+                                    <div class="input-group">
+                                        <input type="text" id="chat-input-message" class="form-control bg-dark-soft border-light text-white" placeholder="Nhập tin nhắn..." style="font-size: 0.85rem;">
+                                        <button class="btn btn-info btn-sm px-3" type="button" id="btn-chat-send">
+                                            <i class="bi bi-send-fill"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hàng Lịch sử & Thống kê doanh thu -->
+            <div class="row g-4 mt-2">
+                <!-- Lịch sử các cuốc xe đã hoàn thành -->
+                <div class="col-lg-8">
+                    <div class="card glass-card">
+                        <div class="card-header d-flex justify-content-between align-items-center border-bottom border-light">
+                            <h5 class="card-title mb-0 text-white"><i class="bi bi-clock-history me-2 text-primary-light"></i>Lịch sử cuốc cứu hộ đã hoàn thành</h5>
+                            <span class="badge bg-success-soft text-success" th:text="${#lists.size(completedRequests)} + ' cuốc hoàn thành'">0 cuốc</span>
+                        </div>
+                        <div class="card-body p-0" style="max-height: 380px; overflow-y: auto;">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0" id="completedTripsTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Mã cuốc</th>
+                                            <th>Khách hàng</th>
+                                            <th>Sự cố & Chẩn đoán</th>
+                                            <th>Thời gian hoàn thành</th>
+                                            <th class="text-end">Doanh thu (VND)</th>
+                                            <th class="text-end">Thực nhận (90%)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="req : ${completedRequests}" class="trip-row" 
+                                            th:data-timestamp="${req.invoice != null && req.invoice.createdAt != null ? req.invoice.createdAt : req.updatedAt}"
+                                            th:data-total="${req.invoice != null ? req.invoice.totalAmount : (req.basePrice + req.extraPrice)}"
+                                            th:data-net="${req.invoice != null ? (req.invoice.totalAmount - req.invoice.systemFee) : (req.basePrice + req.extraPrice) * 0.9}">
+                                            <td class="font-monospace text-muted small" th:text="${#strings.substring(req.requestId, 0, 8)} + '...'">req-id</td>
+                                            <td>
+                                                <div class="small fw-bold text-white" th:text="${req.customer.fullName}">Khách hàng</div>
+                                                <div class="small text-muted" th:text="${req.customer.phone}">090xxxxxxx</div>
+                                            </td>
+                                            <td>
+                                                <div class="small text-light text-truncate" style="max-width: 200px;" th:text="${req.issueDesc}" th:title="${req.issueDesc}">Lỗi xe</div>
+                                                <div class="small text-warning text-truncate" style="max-width: 200px;" th:text="${req.aiDiagnosis}" th:title="${req.aiDiagnosis}">Chẩn đoán AI</div>
+                                            </td>
+                                            <td>
+                                                <div class="small text-white" th:text="${#temporals.format(req.invoice != null && req.invoice.createdAt != null ? req.invoice.createdAt : req.updatedAt, 'dd/MM/yyyy HH:mm')}">Date</div>
+                                            </td>
+                                            <td class="text-end font-monospace fw-bold text-primary-light" 
+                                                th:text="${#numbers.formatDecimal(req.invoice != null ? req.invoice.totalAmount : (req.basePrice + req.extraPrice), 0, 'COMMA', 0, 'POINT') + ' ₫'}">0 ₫</td>
+                                            <td class="text-end font-monospace fw-bold text-success" 
+                                                th:text="${#numbers.formatDecimal(req.invoice != null ? (req.invoice.totalAmount - req.invoice.systemFee) : (req.basePrice + req.extraPrice) * 0.9, 0, 'COMMA', 0, 'POINT') + ' ₫'}">0 ₫</td>
+                                        </tr>
+                                        <tr th:if="${#lists.isEmpty(completedRequests)}" id="no-completed-trips">
+                                            <td colspan="6" class="text-center text-muted py-4">
+                                                <i class="bi bi-folder-x fs-3 d-block mb-2"></i>
+                                                Bạn chưa có cuốc xe cứu hộ nào được hoàn thành gần đây.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thống kê & Phân tích Doanh thu tháng (3 tháng gần nhất) -->
+                <div class="col-lg-4">
+                    <div class="card glass-card h-100">
+                        <div class="card-header border-bottom border-light">
+                            <h5 class="card-title mb-0 text-success"><i class="bi bi-wallet2 me-2"></i>Thống kê doanh thu tháng</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-3">Tính nhanh tổng thu nhập từ các cuốc xe đã hoàn thành trong 3 tháng gần nhất.</p>
+                            
+                            <div class="mb-3">
+                                <label class="form-label text-muted small">CHỌN THÁNG THỐNG KÊ</label>
+                                <select class="form-select bg-dark border-light text-white" id="revenue-month-select" onchange="calculateMonthlyRevenue()">
+                                    <!-- Options sẽ được tự động render động qua JS (3 tháng gần nhất) -->
+                                </select>
+                            </div>
+
+                            <button type="button" class="btn btn-primary w-100 mb-4 btn-gradient" onclick="calculateMonthlyRevenue()">
+                                <i class="bi bi-calculator me-1"></i> Tính Doanh Thu Tháng
+                            </button>
+
+                            <!-- Kết quả phân tích doanh số -->
+                            <div class="revenue-results bg-black-50 p-3 rounded text-start" style="background-color: rgba(0, 0, 0, 0.2) !important;">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <span class="text-muted small">TỔNG CUỐC HOÀN THÀNH:</span>
+                                    <span class="fw-bold text-white fs-6 font-monospace" id="calc-trips-count">0</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <span class="text-muted small">TỔNG TIỀN KIẾM ĐƯỢC (100%):</span>
+                                    <span class="fw-bold text-gradient fs-6 font-monospace" id="calc-total-amount" style="background: linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">0 ₫</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <span class="text-muted small">PHÍ HỆ THỐNG (10%):</span>
+                                    <span class="fw-bold text-warning font-monospace" id="calc-system-fee" style="color: #fbbf24 !important;">0 ₫</span>
+                                </div>
+                                <div class="border-top border-secondary border-opacity-50 pt-3 d-flex justify-content-between align-items-center">
+                                    <span class="text-white small fw-bold">THỰC NHẬN VỀ VÍ (90%):</span>
+                                    <span class="fw-bold text-success fs-5 font-monospace" id="calc-net-received" style="color: #34d399 !important;">0 ₫</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Payout Modal -->
+<div class="modal fade" id="payoutModal" tabindex="-1" aria-labelledby="payoutModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card">
+            <div class="modal-header border-bottom border-light">
+                <h5 class="modal-title text-white" id="payoutModalLabel"><i class="bi bi-wallet2 text-success me-2"></i>Yêu cầu rút tiền từ Ví</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label text-muted small">SỐ TIỀN CẦN RÚT (VND)</label>
+                    <input type="number" id="input-payout-amount" class="form-control bg-dark-soft border-light text-white font-monospace" placeholder="Ví dụ: 100000">
+                    <small class="text-info mt-1 d-block"><i class="bi bi-info-circle me-1"></i>Số dư tối đa có thể rút: <span th:text="${#numbers.formatDecimal(profile.walletBalance, 0, 'COMMA', 0, 'POINT') + ' ₫'}">0 ₫</span></small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">NGÂN HÀNG THỤ HƯỞNG</label>
+                    <select id="select-payout-bank" class="form-select bg-dark-soft border-light text-white">
+                        <option value="">-- Chọn ngân hàng --</option>
+                        <option value="Vietcombank" th:selected="${profile.bankName == 'Vietcombank'}">Vietcombank (VCB)</option>
+                        <option value="MBBank" th:selected="${profile.bankName == 'MBBank'}">MB Bank (MB)</option>
+                        <option value="Techcombank" th:selected="${profile.bankName == 'Techcombank'}">Techcombank (TCB)</option>
+                        <option value="BIDV" th:selected="${profile.bankName == 'BIDV'}">BIDV</option>
+                        <option value="VietinBank" th:selected="${profile.bankName == 'VietinBank'}">VietinBank (CTG)</option>
+                        <option value="Agribank" th:selected="${profile.bankName == 'Agribank'}">Agribank (VBA)</option>
+                        <option value="TPBank" th:selected="${profile.bankName == 'TPBank'}">TPBank (TPB)</option>
+                        <option value="ACB" th:selected="${profile.bankName == 'ACB'}">ACB</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">SỐ TÀI KHOẢN</label>
+                    <input type="text" id="input-payout-account-no" class="form-control bg-dark-soft border-light text-white font-monospace" placeholder="Nhập số tài khoản" th:value="${profile.bankAccountNo}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted small">TÊN CHỦ TÀI KHOẢN (VIẾT HOA KHÔNG DẤU)</label>
+                    <input type="text" id="input-payout-account-name" class="form-control bg-dark-soft border-light text-white font-monospace text-uppercase" placeholder="Ví dụ: NGUYEN VAN THO" th:value="${profile.bankAccountName}">
+                </div>
+            </div>
+            <div class="modal-footer border-top border-light">
+                <button type="button" class="btn btn-secondary-soft btn-sm" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-success btn-sm" id="btn-submit-payout">Xác nhận rút tiền</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Payment Modal -->
+<div class="modal fade" id="adminPaymentModal" tabindex="-1" aria-labelledby="adminPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card">
+            <div class="modal-header border-bottom border-light">
+                <h5 class="modal-title text-white" id="adminPaymentModalLabel"><i class="bi bi-qr-code text-info me-2"></i>Nộp tiền mặt lên Admin</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="small text-muted mb-3">Nhập số tiền và quét mã QR dưới đây bằng Mobile Banking để chuyển tiền lên Admin.</p>
+                
+                <div class="mb-3 text-start">
+                    <label class="form-label text-muted small">SỐ TIỀN MUỐN NỘP (VND)</label>
+                    <input type="number" id="input-admin-pay-amount" class="form-control bg-dark-soft border-light text-white font-monospace" placeholder="Ví dụ: 50000" value="50000">
+                </div>
+
+                <div class="d-flex justify-content-center mb-3">
+                    <img id="admin-pay-qr-image" src="" alt="Admin Payment QR" class="img-fluid rounded border border-secondary" style="max-width: 220px; height: auto;" />
+                </div>
+                
+                <div class="text-start bg-black-50 p-3 rounded small text-light">
+                    <div class="mb-1"><strong>Ngân hàng Admin:</strong> <span id="admin-pay-bank-name"></span></div>
+                    <div class="mb-1"><strong>Số tài khoản:</strong> <span id="admin-pay-acc-no"></span></div>
+                    <div class="mb-1"><strong>Chủ tài khoản:</strong> <span id="admin-pay-acc-name"></span></div>
+                    <div class="mb-1"><strong>Số tiền:</strong> <span id="admin-pay-amount-text"></span></div>
+                    <div><strong>Nội dung:</strong> <span id="admin-pay-desc" class="font-monospace text-warning fw-bold"></span></div>
+                </div>
+            </div>
+            <div class="modal-footer border-top border-light">
+                <button type="button" class="btn btn-secondary-soft btn-sm" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<div th:replace="~{fragments/layout :: toast}"></div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+<!-- Custom Javascript for Rescuer dashboard -->
+<script th:src="@{/js/rescuer.js}"></script>
+</body>
+</html>

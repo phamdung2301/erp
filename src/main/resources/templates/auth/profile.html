@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="vi">
+<head th:replace="~{fragments/layout :: head('Hồ sơ cá nhân')}"></head>
+<body class="app-body">
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<div class="app-wrapper">
+    <div th:replace="~{fragments/sidebar :: sidebar-admin}" sec:authorize="hasRole('ADMIN')"></div>
+    <div th:replace="~{fragments/sidebar :: sidebar-customer}" sec:authorize="hasRole('CUSTOMER')"></div>
+    <div th:replace="~{fragments/sidebar :: sidebar-rescuer}" sec:authorize="hasRole('RESCUER')"></div>
+
+    <main class="main-content">
+        <div class="container-fluid py-4">
+            <div class="page-header mb-4">
+                <h1 class="page-title"><i class="bi bi-person-circle me-2"></i>Hồ sơ cá nhân</h1>
+                <p class="page-subtitle">Quản lý thông tin tài khoản của bạn</p>
+            </div>
+
+            <div class="row g-4">
+                <!-- Avatar Card -->
+                <div class="col-lg-4">
+                    <div class="card glass-card">
+                        <div class="card-body text-center py-5">
+                            <div class="avatar-upload-wrapper mb-3">
+                                <div class="avatar-lg" id="avatarPreview">
+                                    <i class="bi bi-person-fill"></i>
+                                </div>
+                                <label for="avatarInput" class="avatar-upload-btn">
+                                    <i class="bi bi-camera-fill"></i>
+                                </label>
+                                <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
+                            </div>
+                            <h5 class="mb-1" sec:authentication="name">User</h5>
+                            <span class="badge bg-primary" sec:authentication="principal.authorities">ROLE</span>
+
+                            <!-- 2FA Toggle -->
+                            <div class="mt-4 p-3 rounded-3" style="background: rgba(255,255,255,0.05);">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="bi bi-shield-lock text-warning me-2"></i>
+                                        <span>Bảo mật 2FA</span>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="toggle2fa" onchange="toggle2FA()">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profile Form -->
+                <div class="col-lg-8">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0"><i class="bi bi-pencil-square me-2"></i>Chỉnh sửa thông tin</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="profileForm">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="profileName" placeholder="Họ và tên">
+                                            <label for="profileName">Họ và tên</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="email" class="form-control" id="profileEmail" placeholder="Email">
+                                            <label for="profileEmail">Email</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <hr class="my-2">
+                                        <h6 class="text-muted">Đổi mật khẩu (để trống nếu không đổi)</h6>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="password" class="form-control" id="currentPassword" placeholder="Mật khẩu hiện tại">
+                                            <label for="currentPassword">Mật khẩu hiện tại</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="password" class="form-control" id="newPassword" placeholder="Mật khẩu mới">
+                                            <label for="newPassword">Mật khẩu mới</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-4">
+                                    <button type="button" class="btn btn-gradient btn-lg" onclick="updateProfile()">
+                                        <i class="bi bi-check-lg me-2"></i>Lưu thay đổi
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div th:replace="~{fragments/layout :: toast}"></div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:src="@{/js/auth.js}"></script>
+</body>
+</html>

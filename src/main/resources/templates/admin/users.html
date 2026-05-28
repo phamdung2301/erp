@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="vi">
+<head th:replace="~{fragments/layout :: head('Quản lý người dùng')}"></head>
+<body class="app-body">
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<div class="app-wrapper">
+    <div th:replace="~{fragments/sidebar :: sidebar-admin}" th:with="active='users'"></div>
+
+    <main class="main-content">
+        <div class="container-fluid py-4">
+            <div class="page-header mb-4">
+                <h1 class="page-title"><i class="bi bi-people-fill me-2"></i>Quản lý người dùng</h1>
+                <p class="page-subtitle">Danh sách tất cả tài khoản trong hệ thống</p>
+            </div>
+
+            <div class="card glass-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Danh sách User</h5>
+                    <span class="badge bg-primary" th:text="${#lists.size(users)} + ' tài khoản'">0</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="usersTable">
+                            <thead>
+                                <tr>
+                                    <th>Họ tên</th>
+                                    <th>SĐT</th>
+                                    <th>Email</th>
+                                    <th>Vai trò</th>
+                                    <th>Trạng thái</th>
+                                    <th>Ngày tạo</th>
+                                    <th class="text-center">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="u : ${users}">
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="user-avatar-xs">
+                                                <i class="bi bi-person-fill"></i>
+                                            </div>
+                                            <span th:text="${u.fullName != null ? u.fullName : 'N/A'}">Name</span>
+                                        </div>
+                                    </td>
+                                    <td th:text="${u.phone}">0901234567</td>
+                                    <td th:text="${u.email != null ? u.email : '-'}">email</td>
+                                    <td>
+                                        <span class="badge"
+                                              th:classappend="${u.role.name() == 'ADMIN'} ? 'bg-danger' : (${u.role.name() == 'RESCUER'} ? 'bg-warning' : 'bg-primary')"
+                                              th:text="${u.role}">ROLE</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge"
+                                              th:classappend="${u.status.name() == 'ACTIVE'} ? 'bg-success' : 'bg-danger'"
+                                              th:text="${u.status}">STATUS</span>
+                                    </td>
+                                    <td th:text="${u.createdAt != null ? #temporals.format(u.createdAt, 'dd/MM/yyyy HH:mm') : '-'}">Date</td>
+                                    <td class="text-center">
+                                        <div th:if="${u.role.name() != 'ADMIN'}">
+                                            <button th:if="${u.status.name() == 'ACTIVE'}"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    th:data-user-id="${u.userId}"
+                                                    onclick="lockUser(this.getAttribute('data-user-id'))">
+                                                <i class="bi bi-lock-fill"></i> Khóa
+                                            </button>
+                                            <button th:if="${u.status.name() == 'LOCKED'}"
+                                                    class="btn btn-sm btn-outline-success"
+                                                    th:data-user-id="${u.userId}"
+                                                    onclick="unlockUser(this.getAttribute('data-user-id'))">
+                                                <i class="bi bi-unlock-fill"></i> Mở khóa
+                                            </button>
+                                        </div>
+                                        <span th:if="${u.role.name() == 'ADMIN'}" class="text-muted small">—</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div th:replace="~{fragments/layout :: toast}"></div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:src="@{/js/admin.js}"></script>
+</body>
+</html>

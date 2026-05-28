@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="vi">
+<head th:replace="~{fragments/layout :: head('Admin Dashboard')}"></head>
+<body class="app-body">
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<div class="app-wrapper">
+    <div th:replace="~{fragments/sidebar :: sidebar-admin}" th:with="active='dashboard'"></div>
+
+    <main class="main-content">
+        <div class="container-fluid py-4">
+            <!-- Header -->
+            <div class="page-header mb-4">
+                <h1 class="page-title"><i class="bi bi-speedometer2 me-2"></i>Admin Dashboard</h1>
+                <p class="page-subtitle">Tổng quan hệ thống e-Rescue Platform</p>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-6 col-xl-3">
+                    <div class="card glass-card stat-card card-hover">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="stat-label">Tổng người dùng</p>
+                                    <h3 class="stat-value" th:text="${totalUsers}">0</h3>
+                                </div>
+                                <div class="stat-icon bg-primary-soft">
+                                    <i class="bi bi-people-fill text-primary"></i>
+                                </div>
+                            </div>
+                            <div class="stat-footer">
+                                <span class="text-success"><i class="bi bi-arrow-up"></i> Đang hoạt động</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                    <div class="card glass-card stat-card card-hover">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="stat-label">Khách hàng</p>
+                                    <h3 class="stat-value" th:text="${totalCustomers}">0</h3>
+                                </div>
+                                <div class="stat-icon bg-success-soft">
+                                    <i class="bi bi-person-fill text-success"></i>
+                                </div>
+                            </div>
+                            <div class="stat-footer">
+                                <span class="text-muted">Customer accounts</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                    <div class="card glass-card stat-card card-hover">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="stat-label">Đội cứu hộ</p>
+                                    <h3 class="stat-value" th:text="${totalRescuers}">0</h3>
+                                </div>
+                                <div class="stat-icon bg-warning-soft">
+                                    <i class="bi bi-wrench text-warning"></i>
+                                </div>
+                            </div>
+                            <div class="stat-footer">
+                                <span class="text-info"><i class="bi bi-circle-fill me-1" style="font-size:0.5rem"></i>
+                                    <span th:text="${onlineRescuers}">0</span> online
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                    <div class="card glass-card stat-card card-hover">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <p class="stat-label">Chờ duyệt</p>
+                                    <h3 class="stat-value" th:text="${pendingVerifications}">0</h3>
+                                </div>
+                                <div class="stat-icon bg-danger-soft">
+                                    <i class="bi bi-patch-exclamation-fill text-danger"></i>
+                                </div>
+                            </div>
+                            <div class="stat-footer">
+                                <a th:href="@{/admin/rescuer-verification}" class="text-primary">Xem chi tiết →</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Access -->
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="card glass-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0"><i class="bi bi-lightning-fill text-warning me-2"></i>Truy cập nhanh</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <a th:href="@{/admin/users}" class="btn btn-outline-light d-flex align-items-center gap-2">
+                                    <i class="bi bi-people-fill"></i>
+                                    <span>Quản lý người dùng</span>
+                                    <i class="bi bi-chevron-right ms-auto"></i>
+                                </a>
+                                <a th:href="@{/admin/rescuer-verification}" class="btn btn-outline-light d-flex align-items-center gap-2">
+                                    <i class="bi bi-patch-check-fill"></i>
+                                    <span>Duyệt hồ sơ đối tác</span>
+                                    <span class="badge bg-danger ms-auto" th:if="${pendingVerifications > 0}" th:text="${pendingVerifications}">0</span>
+                                    <i class="bi bi-chevron-right" th:if="${pendingVerifications == 0}"></i>
+                                </a>
+                                 <a th:href="@{/admin/price-list}" class="btn btn-outline-light d-flex align-items-center gap-2">
+                                     <i class="bi bi-cash-stack"></i>
+                                     <span>Quản lý bảng giá</span>
+                                     <i class="bi bi-chevron-right ms-auto"></i>
+                                 </a>
+                                 <a th:href="@{/admin/reports}" class="btn btn-outline-light d-flex align-items-center gap-2">
+                                     <i class="bi bi-graph-up-arrow"></i>
+                                     <span>Báo cáo hệ thống</span>
+                                     <i class="bi bi-chevron-right ms-auto"></i>
+                                 </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0"><i class="bi bi-info-circle-fill text-info me-2"></i>Thông tin hệ thống</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-borderless mb-0">
+                                <tbody>
+                                    <tr>
+                                        <td class="text-muted">Platform</td>
+                                        <td class="text-end"><span class="badge bg-primary">e-Rescue v1.0</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Framework</td>
+                                        <td class="text-end"><span class="badge bg-success">Spring Boot 4.0.6</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Database</td>
+                                        <td class="text-end"><span class="badge bg-info">PostgreSQL</span></td>
+                                    </tr>
+                                    <tr>
+                                         <td class="text-muted">Sprint hiện tại</td>
+                                         <td class="text-end"><span class="badge bg-success">Sprint 5 - Hoàn thiện</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Yêu cầu đang chờ</td>
+                                        <td class="text-end"><span class="badge bg-secondary" th:text="${pendingRequests}">0</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div th:replace="~{fragments/layout :: toast}"></div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

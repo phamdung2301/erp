@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="vi">
+<head>
+    <th:block th:replace="~{fragments/layout :: head('Bản đồ Cứu hộ')}"></th:block>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 1;
+        }
+        .leaflet-container {
+            background: #111216 !important;
+        }
+        /* Custom dynamic steps stepper styling */
+        .stepper {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin-bottom: 2rem;
+        }
+        .stepper::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-50%);
+            z-index: 0;
+        }
+        .step-progress {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 0%;
+            height: 3px;
+            background: var(--accent-gradient);
+            transform: translateY(-50%);
+            z-index: 1;
+            transition: width 0.4s ease;
+        }
+        .step-item {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .step-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #1f222a;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #717d96;
+            font-size: 0.9rem;
+            transition: all 0.4s ease;
+        }
+        .step-item.active .step-icon {
+            background: #00e5ff;
+            border-color: #00e5ff;
+            color: #111216;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
+        }
+        .step-item.completed .step-icon {
+            background: #00e676;
+            border-color: #00e676;
+            color: #111216;
+        }
+        .step-label {
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            color: #717d96;
+            font-weight: 500;
+        }
+        .step-item.active .step-label {
+            color: #00e5ff;
+        }
+        .step-item.completed .step-label {
+            color: #00e676;
+        }
+        /* AI chat/estimate result box styling */
+        .ai-diag-box {
+            background: rgba(0, 229, 255, 0.03);
+            border: 1px dashed rgba(0, 229, 255, 0.2);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 1rem;
+            animation: fadeIn 0.4s ease;
+        }
+        .rating-stars {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            font-size: 1.8rem;
+            margin: 1rem 0;
+        }
+        .rating-stars i {
+            cursor: pointer;
+            color: rgba(255, 255, 255, 0.1);
+            transition: color 0.2s ease;
+        }
+        .rating-stars i.hovered, .rating-stars i.selected {
+            color: #ffca28;
+            text-shadow: 0 0 10px rgba(255, 202, 40, 0.4);
+        }
+        .pulse-btn {
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+            animation: pulse-danger 1.5s infinite;
+        }
+        @keyframes pulse-danger {
+            0% { transform: scale(1); }
+            70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+        }
+    </style>
+</head>
+<body class="app-body">
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<div class="app-wrapper">
+    <div th:replace="~{fragments/sidebar :: sidebar-customer}" th:with="active='dashboard'"></div>
+
+    <main class="main-content">
+        <div class="container-fluid py-4">
+            <!-- Welcome Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="page-title mb-1">
+                        <i class="bi bi-geo-alt-fill text-danger me-2"></i>Bản đồ Cứu hộ giao thông
+                    </h1>
+                    <p class="page-subtitle mb-0">Tìm thợ sửa chữa, định vị sự cố và nhận chẩn đoán AI lập tức.</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-light btn-sm" id="btn-relocate">
+                        <i class="bi bi-geo-fill me-1"></i>Định vị của tôi
+                    </button>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <!-- Map Column -->
+                <div class="col-lg-8">
+                    <div class="card glass-card p-2 h-100 position-relative">
+                        <!-- Floating ETA Widget -->
+                        <div id="eta-floating-widget" class="position-absolute bg-blur glass-card border border-info-soft p-3 rounded shadow-lg d-none" style="z-index: 999; top: 15px; left: 15px; max-width: 320px; background: rgba(17, 18, 22, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(0, 229, 255, 0.15) !important;">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="bg-info-soft text-info rounded-circle d-flex align-items-center justify-content-center" style="width: 42px; height: 42px;">
+                                    <i class="bi bi-clock-history fs-4"></i>
+                                </div>
+                                <div>
+                                    <small class="text-muted d-block small" style="font-size: 0.7rem; letter-spacing: 0.5px;">THỜI GIAN THỢ ĐẾN DỰ KIẾN</small>
+                                    <h5 class="text-white mb-0" id="eta-countdown-text" style="font-weight: 700;">Đang tính...</h5>
+                                    <span class="small text-info" id="eta-distance-text" style="font-size: 0.75rem;">Khoảng cách: -- km</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="map"></div>
+                    </div>
+                </div>
+
+                <!-- Interaction Panel Column -->
+                <div class="col-lg-4">
+                    <!-- Panel 1: Create Request -->
+                    <div class="card glass-card h-100" id="panel-request-init">
+                        <div class="card-header border-bottom border-light">
+                            <h5 class="card-title mb-0 d-flex align-items-center gap-2">
+                                <i class="bi bi-patch-question-fill text-primary"></i>
+                                Gửi yêu cầu cứu hộ
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label text-muted small">1. VỊ TRÍ SỰ CỐ</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-dark-soft border-light text-muted">
+                                        <i class="bi bi-geo-alt"></i>
+                                    </span>
+                                    <input type="text" id="input-address" class="form-control bg-dark-soft border-light text-white" 
+                                           placeholder="Chọn điểm trên bản đồ hoặc nhập..." readonly>
+                                </div>
+                                <input type="hidden" id="input-lat">
+                                <input type="hidden" id="input-lng">
+                                <small class="text-info mt-1 d-block"><i class="bi bi-info-circle me-1"></i>Mẹo: Bạn có thể click trực tiếp vào bản đồ để chọn tọa độ chính xác.</small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted small">2. MÔ TẢ SỰ CỐ XE</label>
+                                <textarea id="input-desc" class="form-control bg-dark-soft border-light text-white" rows="3" 
+                                          placeholder="Ví dụ: Xe máy thủng xăm lốp, chết máy không đề được, đứt sên xích xe..."></textarea>
+                            </div>
+
+                            <button type="button" class="btn btn-primary-soft w-100 mb-3" id="btn-ai-diagnose">
+                                <i class="bi bi-robot me-2"></i>Chẩn đoán sự cố bằng AI
+                            </button>
+
+                            <!-- AI Diagnosis Box (Hidden initially) -->
+                            <div class="ai-diag-box d-none" id="ai-diag-result">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <span class="badge bg-primary-soft text-primary"><i class="bi bi-cpu me-1"></i>AI Chẩn đoán</span>
+                                    <span class="badge" id="ai-severity-badge">Trung bình</span>
+                                </div>
+                                <h6 class="text-white mb-2" id="ai-issue-name">Đang chẩn đoán...</h6>
+                                <p class="small text-muted mb-2" id="ai-recommendation"></p>
+                                <div class="border-top border-light pt-2 d-flex justify-content-between align-items-center">
+                                    <span class="small text-muted">Giá cơ bản dự kiến:</span>
+                                    <span class="text-info font-monospace fw-bold fs-5" id="ai-est-price">0đ</span>
+                                </div>
+                            </div>
+
+                            <button type="button" class="btn btn-danger w-100 mt-3" id="btn-submit-request" disabled>
+                                <i class="bi bi-exclamation-octagon-fill me-2"></i>Gửi Yêu cầu Cứu hộ
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel 2: Searching/Pending Request -->
+                    <div class="card glass-card h-100 d-none" id="panel-request-pending">
+                        <div class="card-body text-center py-5">
+                            <div class="spinner-grow text-danger mb-4" style="width: 3rem; height: 3rem;" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <h5 class="text-white">Đang tìm thợ cứu hộ gần nhất...</h5>
+                            <p class="text-muted small px-3">Yêu cầu của bạn đã được gửi lên hệ thống. Đang quét các đối tác sửa chữa đang online gần bạn.</p>
+                            
+                            <div class="card bg-dark-soft border-light text-start my-4 p-3 mx-2">
+                                <h6 class="text-white mb-2 small text-muted"><i class="bi bi-card-text me-1"></i>THÔNG TIN CUỐC CỨU HỘ</h6>
+                                <p class="text-white mb-1 small" id="pending-info-desc"></p>
+                                <p class="text-info mb-0 font-monospace fw-bold" id="pending-info-price"></p>
+                            </div>
+
+                            <!-- Testing simulation tool for easy execution of Sprint 2 flow -->
+                            <div class="p-3 bg-primary-soft border border-primary-soft rounded mb-4 mx-2">
+                                <small class="text-primary fw-bold d-block mb-2"><i class="bi bi-wrench me-1"></i>Hộp công cụ Giả lập (Test/Demo)</small>
+                                <button type="button" class="btn btn-primary btn-sm w-100" onclick="simulateRescuer('ACCEPT')">
+                                    <i class="bi bi-check-circle me-1"></i>Giả lập: Thợ nhận cuốc
+                                </button>
+                            </div>
+
+                            <button type="button" class="btn btn-outline-danger btn-sm px-4" id="btn-cancel-pending">
+                                Hủy yêu cầu
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel 3: Active Request / Tracking -->
+                    <div class="card glass-card h-100 d-none" id="panel-request-active">
+                        <div class="card-header border-bottom border-light">
+                            <h5 class="card-title mb-0 d-flex align-items-center gap-2">
+                                <i class="bi bi-activity text-info"></i>
+                                Hành trình cứu hộ
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- Custom Stepper -->
+                            <div class="stepper">
+                                <div class="step-progress" id="active-progress-bar"></div>
+                                <div class="step-item" id="step-accept">
+                                    <div class="step-icon"><i class="bi bi-check-lg"></i></div>
+                                    <span class="step-label">Nhận cuốc</span>
+                                </div>
+                                <div class="step-item" id="step-arrive">
+                                    <div class="step-icon"><i class="bi bi-geo-fill"></i></div>
+                                    <span class="step-label">Đến nơi</span>
+                                </div>
+                                <div class="step-item" id="step-repair">
+                                    <div class="step-icon"><i class="bi bi-tools"></i></div>
+                                    <span class="step-label">Sửa xe</span>
+                                </div>
+                            </div>
+
+                            <!-- Rescuer Card -->
+                            <div class="d-flex align-items-center gap-3 p-3 bg-dark-soft border border-light rounded mb-4">
+                                <img src="/images/default-avatar.png" id="active-rescuer-avatar" 
+                                     class="rounded-circle border border-light" style="width: 54px; height: 54px; object-fit: cover;"
+                                     onerror="this.src='https://cdn-icons-png.flaticon.com/512/147/147144.png'">
+                                <div>
+                                    <h6 class="text-white mb-0" id="active-rescuer-name">Thợ cứu hộ</h6>
+                                    <p class="text-muted small mb-1" id="active-rescuer-specialty">Chuyên viên cứu hộ lưu động</p>
+                                    <a href="tel:#" class="btn btn-outline-info btn-xs py-0 px-2" id="active-rescuer-phone">
+                                        <i class="bi bi-telephone-fill small me-1"></i>Gọi thợ
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- Payment Method Selector during Active Request -->
+                            <div id="active-payment-selector-container" class="p-3 bg-dark-soft border border-light rounded mb-4">
+                                <h6 class="text-white mb-2 small text-muted"><i class="bi bi-credit-card-2-back-fill me-1"></i>PHƯƠNG THỨC THANH TOÁN</h6>
+                                <select id="active-select-payment-method" class="form-select bg-dark-soft border-light text-white mb-3"
+                                        th:data-admin-bank-name="${adminBankName}"
+                                        th:data-admin-bank-account-no="${adminBankAccountNo}"
+                                        th:data-admin-bank-account-name="${adminBankAccountName}">
+                                    <option value="">-- Chọn phương thức thanh toán --</option>
+                                    <option value="CASH">Tiền mặt (Thanh toán cho thợ)</option>
+                                    <option value="BANK_TRANSFER">Chuyển khoản ngân hàng (Cho Admin)</option>
+                                </select>
+                                
+                                <!-- Active QR Payment Container for BANK_TRANSFER -->
+                                <div id="active-admin-qr-container" class="mt-3 p-3 bg-black-50 border border-secondary rounded d-none text-center">
+                                    <h6 class="text-info fw-bold mb-2">Chuyển khoản cho Admin</h6>
+                                    <p class="small text-muted mb-3">Vui lòng quét mã VietQR dưới đây để thanh toán.</p>
+                                    <div class="d-flex justify-content-center mb-3">
+                                        <img id="active-admin-qr-image" src="" alt="Admin VietQR" class="img-fluid rounded border border-secondary" style="max-width: 220px; height: auto;" />
+                                    </div>
+                                    <div class="text-start bg-black p-2 rounded small text-light mb-3">
+                                        <div class="mb-1"><strong>Ngân hàng:</strong> <span id="active-admin-bank-name"></span></div>
+                                        <div class="mb-1"><strong>Số tài khoản:</strong> <span id="active-admin-acc-no"></span></div>
+                                        <div class="mb-1"><strong>Chủ tài khoản:</strong> <span id="active-admin-acc-name"></span></div>
+                                        <div class="mb-1"><strong>Số tiền:</strong> <span id="active-admin-amount"></span></div>
+                                        <div><strong>Nội dung:</strong> <span id="active-admin-desc" class="font-monospace text-warning fw-bold"></span></div>
+                                    </div>
+                                    <button type="button" class="btn btn-info btn-sm w-100" id="btn-confirm-transfer">
+                                        <i class="bi bi-check-circle me-1"></i>Xác nhận đã chuyển khoản
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Security OTP Code -->
+                            <div id="active-otp-container" class="text-center p-3 bg-warning-soft border border-warning-soft rounded mb-4 d-none">
+                                <small class="text-warning d-block mb-1 font-weight-bold">MÃ XÁC NHẬN HOÀN THÀNH (OTP)</small>
+                                <span class="fs-2 font-monospace fw-bold text-white tracking-widest" id="active-otp-code">------</span>
+                                <small class="text-muted d-block mt-1">Cung cấp mã 6 số này cho thợ sau khi việc sửa xe hoàn thành.</small>
+                            </div>
+
+                            <!-- In-App Chat (Glassmorphic) -->
+                            <div class="mt-4 border-top border-light pt-3" id="active-chat-container">
+                                <h6 class="text-white mb-2 small text-muted d-flex align-items-center justify-content-between">
+                                    <span><i class="bi bi-chat-dots-fill text-info me-2"></i>Nhắn tin với Thợ</span>
+                                    <span class="badge bg-info-soft text-info" id="chat-status-badge">Trực tuyến</span>
+                                </h6>
+                                <div id="chat-messages-box" class="p-3 bg-dark-soft rounded mb-2 overflow-y-auto" style="height: 180px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; gap: 8px;">
+                                    <div class="text-center text-muted small py-4">Chưa có tin nhắn nào. Hãy gửi lời chào!</div>
+                                </div>
+                                <div class="input-group">
+                                    <input type="text" id="chat-input-message" class="form-control bg-dark-soft border-light text-white" placeholder="Nhập tin nhắn..." style="font-size: 0.85rem;">
+                                    <button class="btn btn-info btn-sm px-3" type="button" id="btn-chat-send">
+                                        <i class="bi bi-send-fill"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Simulation controls for Rescuer -->
+                            <div class="p-3 bg-primary-soft border border-primary-soft rounded mb-4">
+                                <small class="text-primary fw-bold d-block mb-2"><i class="bi bi-wrench me-1"></i>Hộp công cụ Giả lập (Test/Demo)</small>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-primary btn-sm" id="btn-sim-arrive" onclick="simulateRescuer('ARRIVE')">Giả lập: Thợ đã đến nơi</button>
+                                    <button class="btn btn-primary btn-sm" id="btn-sim-start" onclick="simulateRescuer('START')">Giả lập: Bắt đầu sửa</button>
+                                    <button class="btn btn-primary btn-sm" id="btn-sim-complete" onclick="simulateRescuer('COMPLETE')">Giả lập: Hoàn thành</button>
+                                </div>
+                            </div>
+
+                            <button type="button" class="btn btn-outline-danger w-100" id="btn-cancel-active">
+                                Hủy yêu cầu cứu hộ
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel 4: Payment & Rating -->
+                    <div class="card glass-card h-100 d-none" id="panel-request-complete">
+                        <div class="card-header border-bottom border-light">
+                            <h5 class="card-title mb-0 d-flex align-items-center gap-2">
+                                <i class="bi bi-credit-card-2-back-fill text-success"></i>
+                                Thanh toán & Đánh giá
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="text-center text-muted mb-2">CHI PHÍ CỨU HỘ</h6>
+                            <h2 class="text-center text-gradient mb-4" id="complete-total-amount">0đ</h2>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted small">PHƯƠNG THỨC THANH TOÁN (ĐÃ XÁC NHẬN)</label>
+                                <div class="bg-dark-soft border border-light p-3 rounded text-white fw-bold text-center" id="complete-payment-method-text">
+                                    ---
+                                </div>
+                                <input type="hidden" id="select-payment-method" value="CASH">
+                            </div>
+
+                            <div class="mb-3 text-center">
+                                <label class="form-label text-muted small d-block">ĐÁNH GIÁ THỢ CỨU HỘ</label>
+                                <div class="rating-stars" id="star-rating">
+                                    <i class="bi bi-star-fill" data-value="1"></i>
+                                    <i class="bi bi-star-fill" data-value="2"></i>
+                                    <i class="bi bi-star-fill" data-value="3"></i>
+                                    <i class="bi bi-star-fill" data-value="4"></i>
+                                    <i class="bi bi-star-fill" data-value="5"></i>
+                                </div>
+                                <input type="hidden" id="input-rating-value" value="5">
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label text-muted small">Ý KIẾN ĐÓNG GÓP (TÙY CHỌN)</label>
+                                <textarea id="input-feedback" class="form-control bg-dark-soft border-light text-white" rows="2" 
+                                          placeholder="Đánh giá dịch vụ cứu hộ..."></textarea>
+                            </div>
+
+                            <button type="button" class="btn btn-success w-100" id="btn-submit-payment">
+                                <i class="bi bi-check-circle-fill me-2"></i>Gửi Đánh giá & Hoàn tất
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<div th:replace="~{fragments/layout :: toast}"></div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+<!-- Custom customer map & trip tracking script -->
+<script th:src="@{/js/customer.js}"></script>
+</body>
+</html>

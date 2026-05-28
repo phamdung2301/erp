@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head th:replace="~{fragments/layout :: head('Đăng ký')}"></head>
+<body class="auth-body">
+
+<div class="auth-container">
+    <!-- Left Panel - Branding -->
+    <div class="auth-brand-panel">
+        <div class="auth-brand-content">
+            <div class="brand-logo-lg">
+                <i class="bi bi-shield-check"></i>
+            </div>
+            <h1 class="auth-brand-title">e-Rescue</h1>
+            <p class="auth-brand-subtitle">Tạo tài khoản mới</p>
+            <div class="auth-features">
+                <div class="auth-feature-item">
+                    <i class="bi bi-1-circle-fill"></i>
+                    <span>Nhập số điện thoại</span>
+                </div>
+                <div class="auth-feature-item">
+                    <i class="bi bi-2-circle-fill"></i>
+                    <span>Xác nhận mã OTP</span>
+                </div>
+                <div class="auth-feature-item">
+                    <i class="bi bi-3-circle-fill"></i>
+                    <span>Tạo mật khẩu</span>
+                </div>
+                <div class="auth-feature-item">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>Hoàn tất!</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel - Register Form -->
+    <div class="auth-form-panel">
+        <div class="auth-form-wrapper">
+            <div class="auth-form-header">
+                <h2>Đăng ký tài khoản</h2>
+                <p>Bắt đầu sử dụng e-Rescue miễn phí</p>
+            </div>
+
+            <!-- Step Indicator -->
+            <div class="step-indicator mb-4">
+                <div class="step active" id="step-indicator-1">
+                    <span class="step-number">1</span>
+                    <span class="step-label">SĐT</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" id="step-indicator-2">
+                    <span class="step-number">2</span>
+                    <span class="step-label">OTP</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step" id="step-indicator-3">
+                    <span class="step-number">3</span>
+                    <span class="step-label">Hoàn tất</span>
+                </div>
+            </div>
+
+            <!-- Step 1: Phone Number -->
+            <div id="step1">
+                <div class="form-floating mb-3">
+                    <input type="text" class="form-control" id="regPhone" placeholder="Số điện thoại" required>
+                    <label for="regPhone"><i class="bi bi-phone me-2"></i>Số điện thoại</label>
+                </div>
+
+                <!-- Role Selection -->
+                <div class="mb-3">
+                    <label class="form-label text-muted small">Bạn là:</label>
+                    <div class="d-flex gap-3">
+                        <div class="role-card selected" id="roleCustomer" onclick="selectRole('CUSTOMER')">
+                            <i class="bi bi-person-fill"></i>
+                            <span>Khách hàng</span>
+                        </div>
+                        <div class="role-card" id="roleRescuer" onclick="selectRole('RESCUER')">
+                            <i class="bi bi-wrench"></i>
+                            <span>Đội cứu hộ</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-primary btn-lg w-100 btn-gradient" onclick="sendOtp()">
+                    <i class="bi bi-send me-2"></i>Gửi mã OTP
+                </button>
+            </div>
+
+            <!-- Step 2: OTP Verification -->
+            <div id="step2" style="display:none;">
+                <div class="otp-info mb-3">
+                    <i class="bi bi-chat-dots-fill text-primary"></i>
+                    <span>Mã OTP đã gửi đến <strong id="otpPhone"></strong></span>
+                </div>
+
+                <div class="form-floating mb-3">
+                    <input type="text" class="form-control text-center" id="otpCode" placeholder="Nhập mã OTP"
+                           maxlength="6" style="font-size: 1.5rem; letter-spacing: 0.5rem;">
+                    <label for="otpCode">Nhập mã OTP 6 số</label>
+                </div>
+
+                <button type="button" class="btn btn-primary btn-lg w-100 btn-gradient" onclick="verifyOtp()">
+                    <i class="bi bi-check-circle me-2"></i>Xác nhận OTP
+                </button>
+
+                <button type="button" class="btn btn-link w-100 mt-2" onclick="sendOtp()">
+                    Gửi lại mã OTP
+                </button>
+            </div>
+
+            <!-- Step 3: Complete Registration -->
+            <div id="step3" style="display:none;">
+                <div class="form-floating mb-3">
+                    <input type="text" class="form-control" id="regName" placeholder="Họ và tên" required>
+                    <label for="regName"><i class="bi bi-person me-2"></i>Họ và tên</label>
+                </div>
+
+                <div class="form-floating mb-3">
+                    <input type="password" class="form-control" id="regPassword" placeholder="Mật khẩu" required>
+                    <label for="regPassword"><i class="bi bi-lock me-2"></i>Mật khẩu (ít nhất 6 ký tự)</label>
+                </div>
+
+                <div class="form-floating mb-3">
+                    <input type="password" class="form-control" id="regConfirmPassword" placeholder="Xác nhận mật khẩu" required>
+                    <label for="regConfirmPassword"><i class="bi bi-lock-fill me-2"></i>Xác nhận mật khẩu</label>
+                </div>
+
+                <button type="button" class="btn btn-primary btn-lg w-100 btn-gradient" onclick="completeRegister()">
+                    <i class="bi bi-check2-all me-2"></i>Hoàn tất đăng ký
+                </button>
+            </div>
+
+            <!-- Login Link -->
+            <div class="text-center mt-4">
+                <span class="text-muted">Đã có tài khoản?</span>
+                <a th:href="@{/login}" class="auth-link ms-1">Đăng nhập</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:src="@{/js/auth.js}"></script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="vi">
+<head th:replace="~{fragments/layout :: head('Công nợ giữ tiền mặt thợ')}"></head>
+<body class="app-body">
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<div class="app-wrapper">
+    <div th:replace="~{fragments/sidebar :: sidebar-admin}" th:with="active='cash-debts'"></div>
+
+    <main class="main-content">
+        <div class="container-fluid py-4">
+            <div class="page-header mb-4">
+                <h1 class="page-title"><i class="bi bi-currency-exchange me-2"></i>Quản lý công nợ thợ</h1>
+                <p class="page-subtitle">Danh sách các thợ cứu hộ đang giữ tiền mặt của hệ thống (chưa đóng về Admin)</p>
+            </div>
+
+            <div class="row g-4">
+                <!-- Danh sách công nợ thợ -->
+                <div class="col-lg-8">
+                    <div class="card glass-card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0"><i class="bi bi-currency-exchange me-2"></i>Công nợ thợ giữ tiền mặt</h5>
+                            <span class="badge bg-warning text-dark" id="debts-count-badge" th:text="${#lists.size(rescuersWithDebt)} + ' đối tác'">0</span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0" id="debtsTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Họ tên</th>
+                                            <th>Số điện thoại</th>
+                                            <th>Số tiền mặt đang giữ (Nợ Admin)</th>
+                                            <th class="text-center">Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="r : ${rescuersWithDebt}" th:id="'debt-row-' + ${r.rescuerId}" th:data-phone="${r.user.phone}">
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="user-avatar-xs">
+                                                        <i class="bi bi-person-fill"></i>
+                                                    </div>
+                                                    <span th:text="${r.user.fullName != null ? r.user.fullName : 'N/A'}">Name</span>
+                                                </div>
+                                            </td>
+                                            <td th:text="${r.user.phone}" class="font-monospace">0901234567</td>
+                                            <td class="font-monospace text-warning fw-bold" th:id="'debt-val-' + ${r.rescuerId}"
+                                                th:data-amount="${r.cashDebt}"
+                                                th:text="${#numbers.formatDecimal(r.cashDebt, 0, 'COMMA', 0, 'POINT') + ' ₫'}">0 ₫</td>
+                                            <td class="text-center">
+                                                <div class="d-flex justify-content-center gap-2">
+                                                    <button class="btn btn-xs btn-outline-warning"
+                                                            th:data-rescuer-id="${r.rescuerId}"
+                                                            onclick="remindPayment(this.getAttribute('data-rescuer-id'), this)">
+                                                        <i class="bi bi-bell-fill me-1"></i> Nhắc
+                                                    </button>
+                                                    <button class="btn btn-xs btn-outline-success"
+                                                            th:data-rescuer-id="${r.rescuerId}"
+                                                            th:data-rescuer-name="${r.user.fullName}"
+                                                            onclick="confirmClearCashDebt(this.getAttribute('data-rescuer-id'), this.getAttribute('data-rescuer-name'))">
+                                                        <i class="bi bi-check-circle-fill me-1"></i> Thu nợ
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr th:if="${#lists.isEmpty(rescuersWithDebt)}" id="no-debt-row">
+                                            <td colspan="4" class="text-center text-muted py-4">
+                                                Không có thợ nào đang giữ nợ tiền mặt.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cổng giả lập ngân hàng -->
+                <div class="col-lg-4">
+                    <div class="card glass-card h-100">
+                        <div class="card-header border-bottom border-light">
+                            <h5 class="card-title mb-0 text-info"><i class="bi bi-cpu-fill me-2"></i>Bank Webhook Simulator</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-3">Giả lập ngân hàng gửi tín hiệu biến động số dư (webhook) khi thợ chuyển khoản nộp nợ qua VietQR.</p>
+                            
+                            <form id="webhook-simulator-form" onsubmit="simulateBankTransfer(event)">
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small">CHỌN ĐỐI TÁC CỨU HỘ</label>
+                                    <select class="form-select bg-dark border-light text-white" id="sim-rescuer" onchange="updateSimContent()" required>
+                                        <option value="">-- Chọn thợ cứu hộ đang nợ --</option>
+                                        <option th:each="r : ${rescuersWithDebt}" 
+                                                th:value="${r.user.phone}" 
+                                                th:data-id="${r.rescuerId}"
+                                                th:data-name="${r.user.fullName}"
+                                                th:data-debt="${r.cashDebt}"
+                                                th:text="${r.user.fullName} + ' (' + ${r.user.phone} + ') - Nợ: ' + ${#numbers.formatDecimal(r.cashDebt, 0, 'COMMA', 0, 'POINT') + ' ₫'}">
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small">SỐ TIỀN CHUYỂN KHOẢN (VND)</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control bg-dark border-light text-white font-monospace" id="sim-amount" placeholder="Ví dụ: 100000" required>
+                                        <span class="input-group-text bg-dark-soft border-light text-muted">₫</span>
+                                    </div>
+                                    <div class="form-text text-muted small mt-1">Nộp dư sẽ tự động cộng vào ví của thợ!</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small">NỘI DUNG CHUYỂN KHOẢN (AUTO)</label>
+                                    <input type="text" class="form-control bg-dark border-light text-warning font-monospace small" id="sim-content" readonly value="Vui lòng chọn thợ...">
+                                </div>
+
+                                <button type="submit" class="btn btn-primary w-100 btn-gradient">
+                                    <i class="bi bi-lightning-charge-fill me-1"></i> Giả Lập Chuyển Khoản
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div th:replace="~{fragments/layout :: toast}"></div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:src="@{/js/admin.js}"></script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="vi">
+<head th:replace="~{fragments/layout :: head('Quản lý rút tiền')}"></head>
+<body class="app-body">
+
+<div th:replace="~{fragments/navbar :: navbar}"></div>
+
+<div class="app-wrapper">
+    <div th:replace="~{fragments/sidebar :: sidebar-admin}" th:with="active='payouts'"></div>
+
+    <main class="main-content">
+        <div class="container-fluid py-4">
+            <div class="page-header mb-4">
+                <h1 class="page-title"><i class="bi bi-wallet2 me-2"></i>Quản lý yêu cầu rút tiền</h1>
+                <p class="page-subtitle">Xem và phê duyệt các yêu cầu rút tiền ví của đối tác cứu hộ</p>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <ul class="nav nav-tabs custom-tabs mb-4" id="payoutTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending" type="button" role="tab" aria-controls="pending" aria-selected="true">
+                        Chờ duyệt <span class="badge bg-warning text-dark ms-1" th:text="${#lists.size(pendingPayoutRequests)}">0</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved" type="button" role="tab" aria-controls="approved" aria-selected="false">
+                        Đã duyệt <span class="badge bg-success ms-1" th:text="${#lists.size(approvedPayoutRequests)}">0</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="rejected-tab" data-bs-toggle="tab" data-bs-target="#rejected" type="button" role="tab" aria-controls="rejected" aria-selected="false">
+                        Đã từ chối <span class="badge bg-danger ms-1" th:text="${#lists.size(rejectedPayoutRequests)}">0</span>
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="payoutTabsContent">
+                
+                <!-- Pending Payouts -->
+                <div class="tab-pane fade show active" id="pending" role="tabpanel" aria-labelledby="pending-tab">
+                    <div class="card glass-card">
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Thợ cứu hộ</th>
+                                            <th>SĐT liên hệ</th>
+                                            <th>Số tiền rút</th>
+                                            <th>Thời gian yêu cầu</th>
+                                            <th class="text-center">Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="p : ${pendingPayoutRequests}" th:id="'payout-row-' + ${p.payoutId}">
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="user-avatar-xs">
+                                                        <i class="bi bi-person-fill"></i>
+                                                    </div>
+                                                    <span th:text="${p.rescuer.fullName != null ? p.rescuer.fullName : p.rescuer.phone}">Trần Văn Thợ</span>
+                                                </div>
+                                            </td>
+                                            <td th:text="${p.rescuer.phone}">0902222222</td>
+                                            <td class="text-warning font-monospace" th:text="${#numbers.formatDecimal(p.amount, 0, 'COMMA', 0, 'POINT') + ' ₫'}">50,000 ₫</td>
+                                            <td th:text="${p.createdAt != null ? #temporals.format(p.createdAt, 'dd/MM/yyyy HH:mm') : '-'}">Date</td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-success me-2" 
+                                                        th:data-payout-id="${p.payoutId}" 
+                                                        th:data-rescuer-name="${p.rescuer.fullName != null ? p.rescuer.fullName : p.rescuer.phone}"
+                                                        th:data-bank-name="${p.bankName}"
+                                                        th:data-bank-account-no="${p.bankAccountNo}"
+                                                        th:data-bank-account-name="${p.bankAccountName}"
+                                                        th:data-amount="${p.amount}"
+                                                        onclick="approvePayout(event, this)">
+                                                    <i class="bi bi-check-circle"></i> Duyệt
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        th:data-payout-id="${p.payoutId}" 
+                                                        onclick="rejectPayout(event, this.getAttribute('data-payout-id'))">
+                                                    <i class="bi bi-x-circle"></i> Từ chối
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr th:if="${#lists.isEmpty(pendingPayoutRequests)}">
+                                            <td colspan="5" class="text-center text-muted py-4">Không có yêu cầu rút tiền nào đang chờ duyệt.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Approved Payouts -->
+                <div class="tab-pane fade" id="approved" role="tabpanel" aria-labelledby="approved-tab">
+                    <div class="card glass-card">
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Thợ cứu hộ</th>
+                                            <th>SĐT liên hệ</th>
+                                            <th>Số tiền rút</th>
+                                            <th>Thời gian yêu cầu</th>
+                                            <th>Thời gian duyệt</th>
+                                            <th>Trạng thái</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="p : ${approvedPayoutRequests}">
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="user-avatar-xs">
+                                                        <i class="bi bi-person-fill"></i>
+                                                    </div>
+                                                    <span th:text="${p.rescuer.fullName != null ? p.rescuer.fullName : p.rescuer.phone}">Trần Văn Thợ</span>
+                                                </div>
+                                            </td>
+                                            <td th:text="${p.rescuer.phone}">0902222222</td>
+                                            <td class="text-success font-monospace" th:text="${#numbers.formatDecimal(p.amount, 0, 'COMMA', 0, 'POINT') + ' ₫'}">50,000 ₫</td>
+                                            <td th:text="${p.createdAt != null ? #temporals.format(p.createdAt, 'dd/MM/yyyy HH:mm') : '-'}">Date</td>
+                                            <td th:text="${p.processedAt != null ? #temporals.format(p.processedAt, 'dd/MM/yyyy HH:mm') : '-'}">Date</td>
+                                            <td><span class="badge bg-success">Đã duyệt</span></td>
+                                        </tr>
+                                        <tr th:if="${#lists.isEmpty(approvedPayoutRequests)}">
+                                            <td colspan="6" class="text-center text-muted py-4">Không có yêu cầu nào đã phê duyệt.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rejected Payouts -->
+                <div class="tab-pane fade" id="rejected" role="tabpanel" aria-labelledby="rejected-tab">
+                    <div class="card glass-card">
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Thợ cứu hộ</th>
+                                            <th>SĐT liên hệ</th>
+                                            <th>Số tiền rút</th>
+                                            <th>Thời gian yêu cầu</th>
+                                            <th>Thời gian hủy</th>
+                                            <th>Trạng thái</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr th:each="p : ${rejectedPayoutRequests}">
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="user-avatar-xs">
+                                                        <i class="bi bi-person-fill"></i>
+                                                    </div>
+                                                    <span th:text="${p.rescuer.fullName != null ? p.rescuer.fullName : p.rescuer.phone}">Trần Văn Thợ</span>
+                                                </div>
+                                            </td>
+                                            <td th:text="${p.rescuer.phone}">0902222222</td>
+                                            <td class="text-danger font-monospace" th:text="${#numbers.formatDecimal(p.amount, 0, 'COMMA', 0, 'POINT') + ' ₫'}">50,000 ₫</td>
+                                            <td th:text="${p.createdAt != null ? #temporals.format(p.createdAt, 'dd/MM/yyyy HH:mm') : '-'}">Date</td>
+                                            <td th:text="${p.processedAt != null ? #temporals.format(p.processedAt, 'dd/MM/yyyy HH:mm') : '-'}">Date</td>
+                                            <td><span class="badge bg-danger">Đã từ chối</span></td>
+                                        </tr>
+                                        <tr th:if="${#lists.isEmpty(rejectedPayoutRequests)}">
+                                            <td colspan="6" class="text-center text-muted py-4">Không có yêu cầu nào bị từ chối.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Payout Approval QR Modal -->
+<div class="modal fade" id="payoutConfirmModal" tabindex="-1" aria-labelledby="payoutConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card">
+            <div class="modal-header border-bottom border-light">
+                <h5 class="modal-title text-white" id="payoutConfirmModalLabel"><i class="bi bi-qr-code-scan text-success me-2"></i>Chuyển khoản phê duyệt</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="text-light small mb-3">Vui lòng quét mã VietQR dưới đây bằng ứng dụng Mobile Banking của bạn để chuyển khoản trực tiếp cho thợ cứu hộ.</p>
+                
+                <!-- VietQR Image Container -->
+                <div class="qr-code-wrapper p-3 bg-white rounded-3 d-inline-block mb-3 shadow-lg">
+                    <img id="vietqr-image" src="" alt="VietQR Code" style="max-width: 250px; height: auto;">
+                </div>
+                
+                <!-- Transaction Info -->
+                <div class="text-start bg-dark-soft p-3 rounded border border-light mb-2">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted small">Người nhận:</span>
+                        <span class="text-white fw-bold" id="qr-rescuer-name">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted small">Ngân hàng:</span>
+                        <span class="text-white fw-bold" id="qr-bank-name">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted small">Số tài khoản:</span>
+                        <span class="text-white font-monospace" id="qr-account-no">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted small">Số tiền:</span>
+                        <span class="text-success fw-bold font-monospace" id="qr-amount">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Nội dung CK:</span>
+                        <span class="text-warning fw-bold font-monospace" id="qr-description">-</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top border-light">
+                <button type="button" class="btn btn-secondary-soft btn-sm" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-success btn-sm btn-gradient" id="btn-confirm-payout-paid">Xác nhận đã chuyển tiền</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: toast}"></div>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:src="@{/js/admin.js}"></script>
+</body>
+</html>
